@@ -1,0 +1,41 @@
+[project]
+name = "blockiotintelligence"
+version = "0.1.0"
+description = "Executable realization of the BlockIoTIntelligence architecture (Singh, Rathore, Park, FGCS 2020) on Edge-IIoTset"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy==2.3.5",
+    "pandas==2.3.3",
+    "pyarrow==21.0.0",
+    "scikit-learn==1.7.2",
+    "pydantic==2.12.4",
+    "PyYAML==6.0.3",
+    "cryptography==46.0.3",
+    "psutil==7.0.0",
+    "requests==2.32.5",
+    "joblib==1.5.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2", "ruff==0.12.0", "pypdf==6.16.2"]
+# Added in the phases that need them (ADR §10): blockchain (Phase 2), transport (Phase 7), dashboard (Phase 8).
+blockchain = ["web3", "py-solc-x"]
+transport = ["paho-mqtt", "fastapi", "uvicorn", "httpx"]
+dashboard = ["streamlit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = ["dataset: needs the downloaded Edge-IIoTset files (skipped when absent)"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["UP038"]  # deprecated rule; tuple isinstance is fine
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/download_edge_iiotset.py" = ["E501"]  # long provenance strings in the dataset card
+"scripts/make_figures.py" = ["E501"]  # figure captions

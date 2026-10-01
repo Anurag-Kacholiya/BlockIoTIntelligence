@@ -1,0 +1,14 @@
+# Pinned, tested versions (ADR Phase 0 task 8). Later-phase extras live in pyproject.toml.
+numpy==2.3.5
+pandas==2.3.3
+pyarrow==21.0.0
+scikit-learn==1.7.2
+pydantic==2.12.4
+PyYAML==6.0.3
+cryptography==46.0.3
+psutil==7.0.0
+requests==2.32.5
+joblib==1.5.2
+pytest==8.4.2
+ruff==0.12.0
+pypdf==6.16.2

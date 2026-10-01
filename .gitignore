@@ -1,0 +1,22 @@
+# Datasets are large and reproducible from data/metadata/ manifests; never commit them.
+data/external/
+data/standardized/
+data/prepared/
+data/splits/
+data/synthetic/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+
+# Trained artifacts are large and reproducible (scripts/train_models.py); their .json provenance records are kept.
+models/**/*.joblib
+
+# Local toolchain (Foundry/Anvil binaries) and virtualenv
+tools/
+.venv/
+
+# Forge build cache
+blockchain/cache/

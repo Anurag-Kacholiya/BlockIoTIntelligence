@@ -1,0 +1,66 @@
+# Edge-IIoTset preparation configuration (ADR §2A, Dataset Preparation Plan).
+edge_iiotset:
+  source_of_record: {publisher: IEEE DataPort, doi: 10.21227/MBC1-1H68}
+  download_mirror: {host: Kaggle, ref: mohamedamineferrag/edgeiiotset-cyber-security-dataset-of-iot-iiot, version: 5}
+  raw_dir: data/external/edge_iiotset/raw
+  files:
+    # 157,800 rows, 85% attack — small; used for fast iteration and unit-scale experiments.
+    ml: "Edge-IIoTset dataset/Selected dataset for ML and DL/ML-EdgeIIoT-dataset.csv"
+    # 2,219,201 rows, 73% normal — primary workload for the streaming architecture and scaling runs.
+    dnn: "Edge-IIoTset dataset/Selected dataset for ML and DL/DNN-EdgeIIoT-dataset.csv"
+  primary: dnn
+  targets:
+    binary: Attack_label
+    multiclass: Attack_type
+
+  # Publisher's own preprocessing (Readme.txt, Step 4) drops these columns. They are identifiers,
+  # timestamps, ports or free-text payloads that let a model memorise capture sessions.
+  # Verified here: ip.src_host 192.168.0.170 is 100% attack; frame.time is date-truncated in the DNN view
+  # ("2021 11:44:10.08") and a small float in the ML view, and each attack occupies its own time slice.
+  leakage_drop_columns:
+    - frame.time
+    - ip.src_host
+    - ip.dst_host
+    - arp.src.proto_ipv4
+    - arp.dst.proto_ipv4
+    - http.file_data
+    - http.request.full_uri
+    - icmp.transmit_timestamp
+    - http.request.uri.query
+    - tcp.options
+    - tcp.payload
+    - tcp.srcport
+    - tcp.dstport
+    - udp.port
+    - mqtt.msg
+
+  # Categorical columns the publisher one-hot encodes (Readme.txt, Step 5).
+  categorical_columns:
+    - http.request.method
+    - http.referer
+    - http.request.version
+    - dns.qry.name.len
+    - mqtt.conack.flags
+    - mqtt.protoname
+    - mqtt.topic
+
+  # frame.time cannot drive temporal features (see above), so fog windows are computed on the
+  # timestamps our device simulator assigns during replay. These are derived features, not dataset columns.
+  temporal:
+    time_source: replay
+    windows_seconds: [1, 5, 30, 60]
+
+  split:
+    train: 0.70
+    validation: 0.15
+    test: 0.15
+    stratify_on: Attack_type
+    seed: 42
+  oversampling: none   # if enabled later: train partition only, after the split (plan step 9)
+
+paths:
+  metadata: data/metadata
+  standardized: data/standardized
+  prepared: data/prepared
+  splits: data/splits
+  manifests: experiments/manifests

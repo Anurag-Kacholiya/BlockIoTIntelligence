@@ -1,0 +1,28 @@
+# Experiment defaults (ADR §11, §19).
+repetitions: 3
+seeds: [42, 43, 44]
+sample_rows: 200000          # rows streamed through the architecture per run (full DNN view: 2,219,201)
+scaling_devices: [10, 25, 50, 100, 250, 500, 1000]
+blockchain: [false, true]
+
+# Experiment suite for the first project presentation (scripts/run_experiments.py --suite presentation1).
+suites:
+  presentation1:
+    # A/B/C: accuracy, latency, resources — same data, seeds and models, only the ledger differs.
+    comparison:
+      modes: [baseline, per_event, batch]
+      seeds: [42, 43, 44]
+      # Per-event mode mines one block per transaction and a local Anvil node slows as blocks accumulate
+      # (104 -> 63 events/s from 1k to 5k events), so run sizes are kept equal and moderate for every mode.
+      rows: 10000
+      devices: 10
+      edges: 2
+      fogs: 1
+    # E: scalability in number of logical devices (paper's device/edge node scaling).
+    scaling:
+      modes: [baseline, batch, per_event]
+      devices: [10, 50, 100, 250, 500]
+      rows: 5000
+      seed: 42
+      edges: 2
+      fogs: 1

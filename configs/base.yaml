@@ -1,0 +1,26 @@
+# Global runtime configuration (ADR §4, §26).
+project: BlockIoTIntelligence
+seed: 42
+
+# Logical topology. Counts are overridden per experiment (configs/experiments.yaml).
+topology:
+  devices: 10
+  edges: 2
+  fogs: 1
+  clouds: 1
+
+blockchain:
+  enabled: false          # Phase 1 baseline runs with the ledger off; Phase 2+ switches it on.
+
+transport:
+  device_to_edge: in_process   # in_process | mqtt   (MQTT arrives with Phase 7)
+  inter_layer: in_process      # in_process | http
+
+logging:
+  level: INFO
+  format: json
+
+paths:
+  models: models
+  results: experiments/results
+  logs: experiments/logs

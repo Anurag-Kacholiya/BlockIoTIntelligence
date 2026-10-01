@@ -1,0 +1,13 @@
+# Private EVM configuration (ADR §6). Filled in during Phase 2; deploy.py writes contract_address.
+network:
+  rpc_url: http://127.0.0.1:8545   # local Anvil node
+  chain_id: 31337
+  confirmations: 1
+contract:
+  name: IoTRegistry
+  address: null
+accounts:
+  mnemonic: "test test test test test test test test test test test junk"   # Anvil's public dev mnemonic — never use on a real network
+retry:
+  attempts: 5
+  backoff_seconds: 0.5

@@ -1,0 +1,9 @@
+mode,kind,gas_per_event,tx_per_event
+batch,cloud_inference_record,110.386,0.004
+batch,device_commit,3872.856,0.04
+batch,edge_processed,2067.806,0.04
+batch,fog_alert_audit,6648.547,0.004
+per_event,cloud_inference_record,110.386,0.004
+per_event,device_commit,97247.592,1.0
+per_event,edge_processed,51911.494,1.0
+per_event,fog_alert_audit,6648.577,0.004

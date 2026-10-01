@@ -1,0 +1,90 @@
+{
+  "args": {
+    "rows": 10000,
+    "mode": "batch",
+    "rates": "0,0.1,0.25,0.5",
+    "seed": 42
+  },
+  "records": [
+    {
+      "tamper_rate": 0.0,
+      "mode": "baseline",
+      "attack_detection_rate": 0.8939818054583625,
+      "tampered_attack_detection_rate": NaN,
+      "normal_false_positive_rate": 0.00014001680201624196,
+      "integrity_rejections": 0,
+      "tampered_events": 0,
+      "throughput_eps": 12033.78545932028
+    },
+    {
+      "tamper_rate": 0.0,
+      "mode": "batch",
+      "attack_detection_rate": 0.8939818054583625,
+      "tampered_attack_detection_rate": NaN,
+      "normal_false_positive_rate": 0.00014001680201624196,
+      "integrity_rejections": 0,
+      "tampered_events": 0,
+      "throughput_eps": 1450.6559644280244
+    },
+    {
+      "tamper_rate": 0.1,
+      "mode": "baseline",
+      "attack_detection_rate": 0.8075577326801959,
+      "tampered_attack_detection_rate": 0.0,
+      "normal_false_positive_rate": 0.00014001680201624196,
+      "integrity_rejections": 0,
+      "tampered_events": 277,
+      "throughput_eps": 8331.177065072765
+    },
+    {
+      "tamper_rate": 0.1,
+      "mode": "batch",
+      "attack_detection_rate": 0.9044786564030791,
+      "tampered_attack_detection_rate": 1.0,
+      "normal_false_positive_rate": 0.00014001680201624196,
+      "integrity_rejections": 277,
+      "tampered_events": 277,
+      "throughput_eps": 1417.5324991487662
+    },
+    {
+      "tamper_rate": 0.25,
+      "mode": "baseline",
+      "attack_detection_rate": 0.6682995101469559,
+      "tampered_attack_detection_rate": 0.0,
+      "normal_false_positive_rate": 0.00014001680201624196,
+      "integrity_rejections": 0,
+      "tampered_events": 713,
+      "throughput_eps": 11263.600982555758
+    },
+    {
+      "tamper_rate": 0.25,
+      "mode": "batch",
+      "attack_detection_rate": 0.91777466759972,
+      "tampered_attack_detection_rate": 1.0,
+      "normal_false_positive_rate": 0.00014001680201624196,
+      "integrity_rejections": 713,
+      "tampered_events": 713,
+      "throughput_eps": 1393.4635450765052
+    },
+    {
+      "tamper_rate": 0.5,
+      "mode": "baseline",
+      "attack_detection_rate": 0.456962911126662,
+      "tampered_attack_detection_rate": 0.0,
+      "normal_false_positive_rate": 0.00014001680201624196,
+      "integrity_rejections": 0,
+      "tampered_events": 1403,
+      "throughput_eps": 11400.639327969373
+    },
+    {
+      "tamper_rate": 0.5,
+      "mode": "batch",
+      "attack_detection_rate": 0.9478656403079077,
+      "tampered_attack_detection_rate": 1.0,
+      "normal_false_positive_rate": 0.00014001680201624196,
+      "integrity_rejections": 1403,
+      "tampered_events": 1403,
+      "throughput_eps": 1326.5413091300584
+    }
+  ]
+}

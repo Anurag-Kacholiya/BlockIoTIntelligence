@@ -1,0 +1,269 @@
+{
+  "args": {
+    "rows": 3000,
+    "rate": 0.05,
+    "devices": 10,
+    "edges": 2,
+    "seed": 42
+  },
+  "timing": {
+    "baseline": {
+      "edge_ms_per_event_mean": 0.03469369865128595
+    },
+    "blockchain": {
+      "edge_ms_per_event_mean": 7.534004952301016
+    }
+  },
+  "summary": [
+    {
+      "mode": "baseline",
+      "attack": "tamper",
+      "events": 130,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": 0.0,
+      "false_accept_rate": 1.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "baseline",
+      "attack": "legitimate (during tamper)",
+      "events": 2870,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.0
+    },
+    {
+      "mode": "blockchain",
+      "attack": "tamper",
+      "events": 130,
+      "rejected": 130,
+      "reasons": "{\"hash_mismatch\": 130}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "blockchain",
+      "attack": "legitimate (during tamper)",
+      "events": 2870,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.0
+    },
+    {
+      "mode": "baseline",
+      "attack": "legitimate (during replay_same_edge)",
+      "events": 3000,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.0
+    },
+    {
+      "mode": "baseline",
+      "attack": "replay_same_edge",
+      "events": 134,
+      "rejected": 134,
+      "reasons": "{\"duplicate_event\": 134}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "blockchain",
+      "attack": "legitimate (during replay_same_edge)",
+      "events": 3000,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.0
+    },
+    {
+      "mode": "blockchain",
+      "attack": "replay_same_edge",
+      "events": 134,
+      "rejected": 134,
+      "reasons": "{\"duplicate_event\": 134}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "baseline",
+      "attack": "legitimate (during replay_cross_edge)",
+      "events": 3000,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.0
+    },
+    {
+      "mode": "baseline",
+      "attack": "replay_cross_edge",
+      "events": 134,
+      "rejected": 71,
+      "reasons": "{\"sequence_regression\": 67, \"duplicate_event\": 4}",
+      "detection_rate": 0.5298507462686567,
+      "false_accept_rate": 0.4701492537313433,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "blockchain",
+      "attack": "legitimate (during replay_cross_edge)",
+      "events": 3000,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.0
+    },
+    {
+      "mode": "blockchain",
+      "attack": "replay_cross_edge",
+      "events": 134,
+      "rejected": 134,
+      "reasons": "{\"replay_already_processed\": 134}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "baseline",
+      "attack": "legitimate (during unregistered_device)",
+      "events": 3000,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.0
+    },
+    {
+      "mode": "baseline",
+      "attack": "unregistered_device",
+      "events": 140,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": 0.0,
+      "false_accept_rate": 1.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "blockchain",
+      "attack": "legitimate (during unregistered_device)",
+      "events": 3000,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.0
+    },
+    {
+      "mode": "blockchain",
+      "attack": "unregistered_device",
+      "events": 140,
+      "rejected": 140,
+      "reasons": "{\"unregistered_device\": 140}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "baseline",
+      "attack": "legitimate (during impersonation)",
+      "events": 3000,
+      "rejected": 2776,
+      "reasons": "{\"sequence_regression\": 2776}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.9253333333333333
+    },
+    {
+      "mode": "baseline",
+      "attack": "impersonation",
+      "events": 140,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": 0.0,
+      "false_accept_rate": 1.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "blockchain",
+      "attack": "legitimate (during impersonation)",
+      "events": 3000,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": NaN,
+      "false_accept_rate": NaN,
+      "false_reject_rate": 0.0
+    },
+    {
+      "mode": "blockchain",
+      "attack": "impersonation",
+      "events": 140,
+      "rejected": 140,
+      "reasons": "{\"identity_mismatch\": 140}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "baseline",
+      "attack": "model_tamper_artifact_only",
+      "events": 1,
+      "rejected": 1,
+      "reasons": "{\"local record mismatch\": 1}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "baseline",
+      "attack": "model_tamper_artifact_and_record",
+      "events": 1,
+      "rejected": 0,
+      "reasons": "{}",
+      "detection_rate": 0.0,
+      "false_accept_rate": 1.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "blockchain",
+      "attack": "model_tamper_artifact_only",
+      "events": 1,
+      "rejected": 1,
+      "reasons": "{\"local record mismatch\": 1}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "blockchain",
+      "attack": "model_tamper_artifact_and_record",
+      "events": 1,
+      "rejected": 1,
+      "reasons": "{\"on-chain registry mismatch\": 1}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    },
+    {
+      "mode": "blockchain",
+      "attack": "unauthorized_ledger_write",
+      "events": 1,
+      "rejected": 1,
+      "reasons": "{\"contract_revert_NotAuthorized\": 1}",
+      "detection_rate": 1.0,
+      "false_accept_rate": 0.0,
+      "false_reject_rate": NaN
+    }
+  ]
+}
