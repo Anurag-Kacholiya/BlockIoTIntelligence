@@ -362,6 +362,33 @@ The layers use different nodes: device gateway → node 0, edges → nodes 1 and
 
 Details and results: [final/02_multi_node_blockchain.md §10](final/02_multi_node_blockchain.md#10-implementation-and-results-3-nov-2026).
 
+### Step 10 — Add-on after task 2: fault tolerance (Nov 2026)
+
+Experiment F of the ADR: parts of the running system are switched off and back on. Before this add-on nothing
+handled a failure: a failed edge or fog lost its traffic, the cloud had no queue, and a dead blockchain node stopped
+the whole run.
+
+1. **Recovery mechanisms:**
+   - an edge or fog that fails hands its traffic to the next one;
+   - the fogs hold the cloud's input while it is down and forward it when it returns (store and forward);
+   - the blockchain client switches to another node when its node dies, and resends every transaction not yet
+     confirmed. This is the ADR's "retry + local queue + eventual commit", built for the first time.
+2. **A fault injector** (`src/common/faults.py`) switches off a device, an edge, a fog, the cloud, or crashes and
+   restarts validators while a run streams.
+3. **13 runs** on the 4-validator network:
+   - each fault from 30 to 60 s;
+   - edge, fog and cloud each with and without recovery;
+   - plus 1 and 2 of 4 validators down.
+4. **Main results:**
+   - **With recovery, no message is lost** in any scenario, and every prediction is unchanged.
+   - **Without recovery,** 19–26% of the run's messages are lost, including up to 1,386 attack messages.
+   - **With 1 of 4 validators down** the chain continues at 0.4 blocks/s.
+   - **With 2 of 4 down** it halts and resumes 64.8 s after the quorum returns. Nothing is lost, and every node ends
+     with the same chain.
+   - **Finding:** fog failover loses the fog's flood-detection state; in this run, all 108 flood alerts.
+
+Details and results: [final/02a_fault_tolerance.md §10](final/02a_fault_tolerance.md#10-implementation-and-results-3-nov-2026).
+
 ---
 
 ## 6. Folder-by-folder and file-by-file guide
@@ -419,8 +446,8 @@ and every result can record exactly which settings produced it.
 | `base.yaml` | Global settings: random seed (42), number of devices/edges/fogs/clouds, where models and results go |
 | `datasets.yaml` | Which dataset files to use, the 15 leaky columns to drop and *why*, which columns are categories, split ratios (70/15/15); dataset v2 settings (session gap, CSV time zone, rows per class and device, fog flood threshold for the realistic replay) |
 | `models.yaml` | Which AI model each layer uses and its settings, and the training sample size (300,000 rows) |
-| `blockchain.yaml` | Blockchain network settings (local address, chain ID, dev accounts); the multi-node QBFT network of final task 2 (Besu version and checksum, 4 validators, block period, gas limit) |
-| `experiments.yaml` | Experiment plans: the `presentation1` suite (modes, seeds, sizes, device counts), `final_task1` (the same on dataset v2's realistic replay) and `final_task2` (single node vs QBFT network) |
+| `blockchain.yaml` | Blockchain network settings (local address, chain ID, dev accounts); what the client does when a node stops answering (`retry`: failover rounds, pause, receipt timeout); the multi-node QBFT network of final task 2 (Besu version and checksum, 4 validators, block period, gas limit) |
+| `experiments.yaml` | Experiment plans: the `presentation1` suite (modes, seeds, sizes, device counts), `final_task1` (the same on dataset v2's realistic replay), `final_task2` (single node vs QBFT network) and `final_faults` (the fault scenarios of the fault-tolerance add-on) |
 
 ### 6.4 `src/common/` — shared tools
 
@@ -432,8 +459,9 @@ These are used by every layer. Per the ADR, this folder must not contain any lay
 | `schemas.py` | Defines the standard data formats: a telemetry event, an alert, model metadata, a blockchain receipt… | All layers agree on what a message looks like; malformed messages are rejected automatically |
 | `crypto.py` | Canonical JSON, SHA-256 fingerprints, Ed25519 device keys and signatures | The basis of integrity and identity. "Canonical" means the same data always produces the same fingerprint (key order and number formatting are fixed) |
 | `merkle.py` | Builds a Merkle tree over many fingerprints and checks inclusion proofs | Enables batch mode: one blockchain transaction covers a whole group of events |
-| `blockchain.py` | Starts and stops a private Anvil chain; deploys the contract; sends transactions (signed by the node, or locally with `LocalSigner`); records the time and gas of every transaction; one `Chain` per node with read-your-writes across nodes; optional background confirmation of audit writes | The single place that talks to the blockchain, so all measurements are collected consistently |
-| `qbft.py` | Builds, starts, checks and stops a private network of 4 Besu validators with QBFT consensus (final task 2) | A real multi-node blockchain: blocks need 3 of 4 validators |
+| `blockchain.py` | Starts and stops a private Anvil chain; deploys the contract; sends transactions (signed by the node, or locally with `LocalSigner`); records the time and gas of every transaction; one `Chain` per node with read-your-writes across nodes; optional background confirmation of audit writes; failover to another node with every unconfirmed transaction resent (fault-tolerance add-on) | The single place that talks to the blockchain, so all measurements are collected consistently |
+| `qbft.py` | Builds, starts, checks and stops a private network of 4 Besu validators with QBFT consensus (final task 2); crashes and restarts single validators (fault-tolerance add-on) | A real multi-node blockchain: blocks need 3 of 4 validators |
+| `faults.py` | Fault schedule and injector: takes a device, edge, fog, the cloud or a validator down and back up while a run streams, logging every action (fault-tolerance add-on) | Experiment F: what each failure costs and how the system recovers |
 | `metrics.py` | Times each layer and measures CPU and memory | Produces the latency and resource numbers |
 | `storage.py` | Saves data as Parquet files, each with a "manifest" (fingerprint, row count, git commit); refuses to load a file whose fingerprint changed | Off-chain storage with proof the data wasn't altered |
 | `logging.py` | Structured (JSON) log messages | Makes logs machine-readable |
@@ -527,7 +555,7 @@ attacker.
 | `run_integrity_accuracy.py` | "Attacker disguises attacks" experiment | ~3 min |
 | `run_security.py` | Eight-attack security experiment | ~5 min |
 | `run_presentation1.sh` | Runs **all** presentation experiments in order | ~50 min |
-| `make_figures.py` | Draws the figures and tables from results: `--set presentation1` (default), `final_task1`, `final_task2` | seconds |
+| `make_figures.py` | Draws the figures and tables from results: `--set presentation1` (default), `final_task1`, `final_task2`, `final_faults` | seconds |
 | `validate_tshark_extraction.py` | Final task 1: compares tshark's features with the publisher's CSVs row by row | ~10 min |
 | `build_realistic_events.py` | Final task 1: 24 packet captures → per-packet event tables with real time, session and device | ~15 min |
 | `build_realistic_dataset.py` | Final task 1: dataset v2 and its random and time splits | ~5 min |
@@ -536,8 +564,10 @@ attacker.
 | `setup_besu.py` | Final task 2: installs the pinned, checksum-verified Besu release into `tools/besu` | ~1 min |
 | `run_multinode.py` | Final task 2: `check` (4-validator network, cross-node read), `run` (experiment groups T2.1–T2.4) | ~1.5 h for `run` |
 | `run_final_task2.sh` | Final task 2: reproduces every result and figure | ~1 h 45 min |
+| `run_faults.py` | Fault-tolerance add-on: the fault scenarios of `final_faults` (`--scenarios`, `--resume`) | ~40 min |
+| `run_final_faults.sh` | Fault-tolerance add-on: reproduces every result and figure | ~40 min |
 
-### 6.9 `tests/` — automated checks (80 tests, all passing)
+### 6.9 `tests/` — automated checks (99 tests, all passing)
 
 Run with `make test` (or `.venv/bin/python -m pytest`). They prove the code does what it claims.
 
@@ -555,9 +585,11 @@ Run with `make test` (or `.venv/bin/python -m pytest`). They prove the code does
 | `unit/test_splits.py` | Time split is ordered and survives sampling; held-out device never in training; mid-term split reproduced exactly |
 | `unit/test_simulator.py` | Realistic replay keeps real gaps and devices, hides dates; random replay unchanged |
 | `unit/test_model_registry_paths.py` | Dataset v2 models never replace the mid-term models |
-| `unit/test_multinode_client.py` | QBFT genesis; local signing with per-sender nonces; reads wait for confirmed writes on other nodes; roles spread over nodes |
+| `unit/test_multinode_client.py` | QBFT genesis; local signing with per-sender nonces; reads wait for confirmed writes on other nodes (and re-check the node after a failover); roles spread over nodes |
+| `unit/test_faults.py` | Traffic routing on failure; fault schedule and repair at the end; failover to the next live node; unconfirmed transactions resent in order; node monitoring across restarts |
 | `integration/test_baseline_pipeline.py` | Whole baseline: every event reaches the cloud, all layers predict, accuracy beats guessing |
 | `integration/test_blockchain_pipeline.py` | Whole blockchain run (both modes): every event committed and verified, all 4 models verified on-chain, tampered events rejected; locally signed with background audit writes; the same on a 4-validator QBFT network (all nodes agree) |
+| `integration/test_fault_tolerance.py` | An edge, fog or the cloud down: nothing lost and every prediction unchanged with recovery, its traffic lost without; a device that is off; another edge verifies a failed edge's devices through the ledger; a validator crash on QBFT loses nothing and the node rejoins |
 | `security/test_model_integrity.py` | A modified model file is refused |
 | `performance/` | Empty for now (planned) |
 
@@ -596,8 +628,10 @@ One folder per layer (`device/`, `edge/`, `fog/`, `cloud/`). For each model:
 | `results/realistic_replay-*.json` | Final task 1: 200,000-message realistic replay runs |
 | `results/final_task1/runs.jsonl` | Final task 1: comparison and scaling on the realistic replay |
 | `results/final_task2/` | Final task 2: every single-node and QBFT run (`runs.jsonl`) and security on QBFT |
+| `results/final_faults/` | Fault-tolerance add-on: every fault run (`runs.jsonl`) and the messages each delivered, with every layer's prediction (`rows/*.parquet`) |
 | `results/exp_accuracy_baseline.csv`, `exp_latency_baseline.csv` | Baseline summary tables |
-| `configs/`, `logs/`, `reports/` | Empty placeholders for later phases |
+| `logs/` | Console logs of the final-phase runs (`final_task1_step8.log`, `final_task2.log`, `final_faults.log`, …) |
+| `configs/`, `reports/` | Empty placeholders for later phases |
 
 ### 6.13 `docs/` — documentation
 
@@ -610,7 +644,8 @@ One folder per layer (`device/`, `edge/`, `fog/`, `cloud/`). For each model:
 | `presentation1/tables/` | The numbers behind each chart, as CSV |
 | `final/01_real_timestamps_device_identity.md` | Final task 1: plan, implementation, results, audit |
 | `final/02_multi_node_blockchain.md` | Final task 2: plan, implementation, results |
-| `final/task1/`, `final/task2/` | Figures and tables of each final task |
+| `final/02a_fault_tolerance.md` | Add-on after task 2, fault tolerance (Experiment F): plan, implementation, results |
+| `final/task1/`, `final/task2/`, `final/faults/` | Figures and tables of each final task and of the fault-tolerance add-on |
 
 ### 6.14 Folders not in git
 
@@ -741,6 +776,7 @@ scripts/run_presentation1.sh && .venv/bin/python scripts/make_figures.py   # all
 # final task 1 (dataset v2) and final task 2 (4-validator QBFT network)
 scripts/run_final_task1.sh                                       # or --step8-only
 .venv/bin/python scripts/setup_besu.py && scripts/run_final_task2.sh
+scripts/run_final_faults.sh                                      # fault-tolerance add-on (Experiment F)
 
 # check
 make test
@@ -765,17 +801,18 @@ The pending work is listed after them.
 |---|---:|---:|---:|---:|
 | Implementation phases 0–8 (§11.2) | 7 | 2 | 0 | **7 of 9 fully done** |
 | Acceptance checklist, 31 items (§11.3) | 29 | 2 | 0 | **94% fully met** (29/31) |
-| Experiments A–F (§11.4) | 4 | 1 | 1 | **4 of 6 fully done** |
+| Experiments A–F (§11.4) | 5 | 1 | 0 | **5 of 6 fully done** |
 | Planned files (§11.5) | 54 | 26 merged elsewhere | 21 | **80 of 101 covered** (79%) |
 | Paper requirements RQ-01 … RQ-17 (§14.1) | 11 | 5 | 1 | **11 of 17 fully met** |
-| Automated tests | 80 passing | — | — | 100% passing |
+| Automated tests | 99 passing | — | — | 100% passing |
 
-**Update, 3 Nov 2026:** final tasks 1 and 2 are complete. They remove three of the realism gaps named below:
+**Update, 3 Nov 2026:** final tasks 1 and 2 and the fault-tolerance add-on (Experiment F) are complete. The two
+tasks remove three of the realism gaps named below:
 - simulated timestamps;
 - simulated device identity;
 - a single blockchain node without consensus.
 
-Still open: real network transport, containers, fault tolerance, the dashboard and the final report.
+Still open: real network transport, containers, the dashboard and the final report.
 
 **Overall estimate at the first presentation: about 65% of the total project effort was complete.** This is a
 judgement, not a count; the paragraph below explains it as written then.
@@ -788,7 +825,7 @@ figure is lower than the checklist figure. Everything needed for the **first pre
 
 | Phase | What it means | Status | Evidence |
 |---|---|---|---|
-| 0 | Repository, configuration, tests | ✅ Done | `configs/`, `src/common/`, 80 tests, lint clean |
+| 0 | Repository, configuration, tests | ✅ Done | `configs/`, `src/common/`, 99 tests, lint clean |
 | 1 | Baseline four-layer pipeline, no blockchain | ✅ Done | `scripts/run_baseline.py`; 200k events at ~12,000 events/s |
 | 2 | Private blockchain + smart contract | ✅ Done | `blockchain/contracts/IoTRegistry.sol`, `src/common/blockchain.py` |
 | 3 | Device intelligence + commitments | ✅ Done | `src/device/` (sign + commit, per-event and Merkle batch) |
@@ -796,7 +833,7 @@ figure is lower than the checklist figure. Everything needed for the **first pre
 | 5 | Fog attack detection + audit | ✅ Done | `src/fog/` (15-class model, flood alerts, on-chain alert audit) |
 | 6 | Cloud training + model registry | ✅ Done | `src/cloud/` (3 candidates, on-chain model fingerprints) |
 | 7 | Full integration | 🟡 Partly | All layers work together and, since final task 2, use a 4-validator blockchain network (separate processes). The layers themselves still run **in one process**: no MQTT/REST transport, no Docker, one fog node in experiments |
-| 8 | Quantitative evaluation | 🟡 Partly | Accuracy, latency (including block time and consensus, task 2), CPU/memory, gas, security and scaling done; **fault tolerance and dashboard missing** |
+| 8 | Quantitative evaluation | 🟡 Partly | Accuracy, latency (including block time and consensus, task 2), CPU/memory, gas, security, scaling and fault tolerance (Experiment F) done; **dashboard missing** |
 
 ### 11.3 Acceptance checklist (ADR §21)
 
@@ -847,7 +884,7 @@ The ADR says the project is complete only when all 31 items are met.
 | C — Resource overhead | CPU, memory, transactions, gas | ✅ | |
 | D — Security | tamper, replay, spoofing, duplicate, invalid signature | ✅ | 8 attack types (more than the ADR lists) |
 | E — Scalability | 10 → 1,000 devices; also edge/fog node counts | 🟡 | done for 10–500 devices, on one node and on the 4-validator network (task 2); **1,000 devices and varying edge/fog node counts not run** |
-| F — Fault tolerance | switch off a device, edge, fog, cloud or chain node | ❌ | not started; next (the add-on after task 2) |
+| F — Fault tolerance | switch off a device, edge, fog, cloud or chain node | ✅ | all five, plus 1 and 2 of 4 validators; event loss, recovery time, continuity (`final/02a_fault_tolerance.md`) |
 
 ### 11.5 Planned files (ADR §4.1 and §2A) vs what exists
 
@@ -885,7 +922,7 @@ lines. The job they describe is done; it just lives elsewhere. They count as cov
 | `scripts/run_pipeline.py` | 🔀 merged | `src/pipeline.py`, called by the run scripts |
 | `scripts/benchmark.py`, `collect_metrics.py` | 🔀 merged | `scripts/run_experiments.py` + `src/common/metrics.py` |
 | `scripts/reproduce_results.py` | 🔀 merged | `scripts/run_presentation1.sh` |
-| `tests/unit`, `integration`, `security` | ✅ | 80 tests |
+| `tests/unit`, `integration`, `security` | ✅ | 99 tests |
 | `tests/performance/` | ❌ | empty |
 | `dashboard/app.py`, `data_loader.py` | ❌ | not started |
 | `notebooks/01…05_*.ipynb` (5) | ❌ | not started |
@@ -924,8 +961,8 @@ final-report items.
 | Task 1 | Real timestamps and device identity: features from the 24 PCAP captures; each real sensor replayed as its own device; held-out-device test; every experiment re-run | ✅ Done (28 Oct; step 8 on 3 Nov 2026) | The two biggest data limitations (simulated time and identity) |
 | Add-on after task 1 | Time-window features: edge rolling windows (`feature_extraction.py`) and fog windows on real time; retrain and compare | Pending | 🟡 "Edge feature extraction" checklist item, RQ-05 |
 | Task 2 | Multi-node blockchain: 4 Besu validators, QBFT consensus, 1 block/s, layers on different nodes; latency including block time | ✅ Done (3 Nov 2026) | Single node without consensus; RQ-10 (ledger part) |
-| Add-on after task 2 | Fault-tolerance test: stop 1 of 4 validators (QBFT should continue), then 2 (it must halt), then an edge or the fog | **Next** | Experiment F |
-| Task 3 | AI-driven blockchain (RQ-11): a model forecasts each gateway's traffic and picks the Merkle batch size, compared with fixed batching | Pending | RQ-11; the scaling drop, which on the QBFT network is mainly gas (6.2× at 500 devices) |
+| Add-on after task 2 | Fault tolerance: a device, edge, fog, the cloud, 1 and 2 of 4 validators fail and recover; failover, store and forward, client failover with resending | ✅ Done (3 Nov 2026) | Experiment F; ADR §14.2 "retry + local queue + eventual commit" |
+| Task 3 | AI-driven blockchain (RQ-11): a model forecasts each gateway's traffic and picks the Merkle batch size, compared with fixed batching | **Next** | RQ-11; the scaling drop, which on the QBFT network is mainly gas (6.2× at 500 devices) |
 
 **Still planned after the three tasks:**
 - MQTT and REST between layers, Docker Compose (Phase 7);
@@ -958,6 +995,9 @@ These are not bugs but boundaries that must be stated whenever the results are s
   accumulate. On the QBFT network, per-event transactions share blocks (about 165 blocks instead of 20,117 for
   10,000 messages), so that cause does not apply there. Longer per-event runs on QBFT were not tested.
 - Energy is a CPU-time proxy, not a power measurement.
+- Fault-tolerance results cover crashes and unreachable components (one seed, one 30 s fault). They do not cover
+  Byzantine validators, network partitions or slow links. Fog failover loses the fog's traffic windows, and in the
+  run with fog failover that lost every flood alert.
 - The paper's numbers come from other studies on different tasks, so the comparison is a reference, not a like-for-like test.
 
 ---
@@ -1013,12 +1053,19 @@ When all phases are complete (final presentation, ~6 weeks), the project deliver
    - every write the next layer must read costs about one block.
 
    Merkle batching keeps its 10× gas saving, but its speed advantage shrinks from 62× to 1.4×.
+7. **The system survives failures it is designed for, and pays in time, not data** (fault-tolerance add-on).
+   - **With failover and store and forward,** no message is lost when an edge, a fog, the cloud or a validator
+     fails.
+   - **Without them,** a 30 s outage loses 19–26% of the run's messages, including attack traffic.
+   - **QBFT behaves exactly as Byzantine fault tolerance promises:** 1 of 4 validators down, the chain continues at
+     40% speed; 2 of 4, it halts without forking.
+   - **But recovering from a lost quorum took 64.8 s** after the quorum returned, twice the outage itself.
 
 ### 12.4 What the final results are expected to add
 
 - ✅ *Done in task 2:* latency **including** block time and consensus. At 1 block/s it is 2.75 s per message,
   far above the instant-mining numbers. 🔜 Network transfer between layers is still to be added.
-- Behaviour when a node fails (Experiment F) and at 1,000 devices.
+- ✅ *Done in the fault-tolerance add-on:* behaviour when a node fails (Experiment F). 🔜 1,000 devices.
 - ✅ *Done in task 1:* accuracy with **real device identity and real timing** from the PCAP captures,
   including a test on devices the model never saw during training (generalisation).
 - An AI-driven blockchain optimisation (RQ-11) with its measured gas/latency saving.
@@ -1218,7 +1265,9 @@ Threat actors are from ADR §14.1; the controls are what this project implements
 **Not covered (stated honestly):**
 - a device whose *private key* is stolen can still send validly signed but false data. This needs anomaly
   detection or key revocation (`revokeDevice` exists but is not exercised);
-- denial-of-service against the blockchain node itself;
+- denial-of-service against the blockchain node itself. A node that *crashes* is covered: the client fails over
+  to another node and resends what was unconfirmed (ADR §14.2, fault-tolerance add-on). A flood of requests was not
+  tested;
 - privacy of the data (nothing is encrypted; the paper's privacy measure is not reproduced).
 
 ### 13.8 AI architecture
@@ -1332,6 +1381,9 @@ training or model selection.
 | Message latency (final task 2) | time from a micro-batch entering the device layer to its cloud result; mean and 95th percentile over micro-batches, in seconds |
 | Transaction latency | time from submitting a blockchain transaction to receiving its receipt (on QBFT: once the block is final) |
 | Consensus check (final task 2) | every validator holds the same block hash at the highest common height at the end of a run |
+| Event loss (fault add-on) | messages the devices sent − messages delivered to the cloud − messages rejected at an edge; a device that is off sends nothing, and its readings are counted as unsent, not lost |
+| Pipeline continuity (fault add-on) | messages reaching the cloud over time; the longest interval without a delivery |
+| Recovery time (fault add-on) | from the repair until every message generated before it has reached the cloud (no fault: 1.9 s, the micro-batch in flight) |
 | CPU per event | CPU time of the pipeline process (plus the blockchain node) ÷ events |
 | Gas per event | total gas of all data-path transactions ÷ events (setup excluded) |
 | Energy (proxy) | CPU time. Clearly labelled as a proxy, not measured watts |
@@ -1347,6 +1399,7 @@ training or model selection.
 | Scaling | 5,000 events per point; 10, 50, 100, 250, 500 devices; all three modes |
 | Final task 2: chain comparison | 10,000 realistic-replay messages; 1 node instant / 1 node 1 block/s / 4 QBFT validators 1 block/s × per-event, batch × 3 seeds; same client in all |
 | Final task 2: other groups | every write awaited (QBFT, 1 seed); block period 2 s and 5 s (batch); scaling 10–500 devices on QBFT (5,000 messages); security on a fresh QBFT network per attack pass |
+| Fault tolerance (add-on) | 10,000 realistic-replay messages on 4 QBFT validators; 2 edges, 2 fogs; each fault 30–60 s: device, edge-00, fog-00, cloud (with and without recovery), validator 1, validators 2 and 3; batch mode, plus per-event for the validator faults; 1 seed |
 
 ---
 
@@ -1423,6 +1476,16 @@ That was true of the instant-mining chain: no block time, no consensus, no netwo
 The paper's numbers come from other studies on different tasks, so they are a reference, not a like-for-like
 comparison.
 
+**What happens when a part of the system fails?**
+It was measured (Experiment F) by switching each part off for 30 s while 10,000 messages streamed:
+- **An edge or fog that fails** hands its traffic to the other one, so no message is lost.
+- **The cloud's input waits at the fogs** and arrives up to 33 s late, but complete.
+- **A crashed blockchain node:** its clients switch to another node within milliseconds and resend what was
+  unconfirmed.
+- **Without these mechanisms,** 19–26% of the messages are lost, including attack traffic.
+- **The 4 validators tolerate one failure** (the chain continues, slower). With two failures the chain halts until
+  one returns, losing nothing and never forking.
+
 **Is the dataset from IEEE DataPort?**
 Yes: Edge-IIoTset, DOI 10.21227/MBC1-1H68. The files were downloaded from the authors' official Kaggle
 copy because DataPort requires a subscription login; the files are identical and fingerprinted.
@@ -1432,10 +1495,9 @@ Columns that reveal the answer (IP addresses, timestamps, ports, payloads) are r
 removed, and all results use test data never seen in training. Every removal is logged with its reason.
 
 **What is still missing?**
-See §11.6. Real timestamps and device identity (task 1) and the multi-node chain (task 2) are done. Still
-missing:
-- fault-tolerance tests (next);
-- the AI-driven blockchain part (RQ-11, task 3);
+See §11.6. Real timestamps and device identity (task 1), the multi-node chain (task 2) and the fault-tolerance
+tests are done. Still missing:
+- the AI-driven blockchain part (RQ-11, task 3, next);
 - time-window features;
 - real network transport and containers;
 - the dashboard.

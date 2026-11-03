@@ -94,6 +94,30 @@ Headline results at one block per second:
 - all 8 attacks still blocked, no genuine message rejected;
 - accuracy and gas identical to the single node.
 
+## Fault tolerance (add-on after final task 2, ADR Experiment F)
+
+Each run switches one part of the system off 30 s into the stream and back on 30 s later: a device, an edge, a
+fog, the cloud, one validator, or two validators. It measures event loss, recovery time and continuity, with and
+without recovery:
+- edge and fog failover;
+- cloud store and forward;
+- blockchain client failover that resends unconfirmed transactions.
+
+```bash
+scripts/run_final_faults.sh                         # all fault scenarios + figures (~40 min)
+.venv/bin/python scripts/run_faults.py --scenarios node_down quorum_lost   # a subset
+```
+
+Figures and tables: `docs/final/faults/`. Design and results:
+[docs/final/02a_fault_tolerance.md](docs/final/02a_fault_tolerance.md).
+
+Headline results:
+- with recovery, no message is lost in any scenario and every prediction is unchanged;
+- without recovery, a 30 s outage of an edge, fog or the cloud loses 19–26% of the messages, attack traffic
+  included;
+- 1 of 4 validators down: the chain continues at 0.4 blocks/s;
+- 2 of 4 down: it halts and resumes 64.8 s after the quorum returns, without forking.
+
 ## Layout
 
 | Path | Contents |

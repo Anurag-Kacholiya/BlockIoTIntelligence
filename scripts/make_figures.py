@@ -3,6 +3,7 @@
   python scripts/make_figures.py                     ->  docs/presentation1/{figures,tables}/  (first presentation)
   python scripts/make_figures.py --set final_task1   ->  docs/final/task1/{figures,tables}/    (dataset v2)
   python scripts/make_figures.py --set final_task2   ->  docs/final/task2/{figures,tables}/    (multi-node chain)
+  python scripts/make_figures.py --set final_faults  ->  docs/final/faults/{figures,tables}/   (fault tolerance)
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.lines  # noqa: E402
+import matplotlib.patches  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import matplotlib.ticker  # noqa: E402
 import numpy as np  # noqa: E402
@@ -59,6 +61,11 @@ SETS = {
         "security": RESULTS / "final_task2" / "security.csv",
         "security_note": "Each attack injected in its own pass into dataset v2's realistic replay, every blockchain"
                          " pass on a fresh 4-validator QBFT network (layers on different nodes; 5% rate).",
+    },
+    "final_faults": {
+        "out": ROOT / "docs" / "final" / "faults",
+        "runs": RESULTS / "final_faults" / "runs.jsonl",
+        "rows": RESULTS / "final_faults" / "rows",
     },
 }
 
@@ -528,6 +535,229 @@ def task2(s: dict) -> None:
         print(f"skipped fig_security: {exc}", file=sys.stderr)
 
 
+FAULT_ORDER = ["device_off", "edge_down", "fog_down", "cloud_down", "node_down", "quorum_lost"]
+FAULT_LABEL = {"reference": "No fault", "device_off": "One device off", "edge_down": "One edge down",
+               "fog_down": "One fog down", "cloud_down": "Cloud down", "node_down": "1 of 4 validators down",
+               "quorum_lost": "2 of 4 validators down"}
+POLICY_COLOR = {"recover": SLOTS[0], "none": SLOTS[1]}
+POLICY_LABEL = {"recover": "With recovery (failover, store and forward)", "none": "Without recovery"}
+PRED_COLUMNS = ["device_pred", "edge_pred", "fog_pred", "cloud_pred"]
+
+
+def _fault_window(r) -> tuple[float, float]:
+    """(failure, repair) in s since the stream start; the repair is the first one during the stream (for 2 of 4
+    validators down: the restart that brings back the quorum)."""
+    log = r.faults["log"]
+    downs = [e["t_s"] for e in log if e["action"] == "down"]
+    ups = [e["t_s"] for e in log if e["action"] == "up" and not e.get("at_end_of_stream")]
+    ups = ups or [e["t_s"] for e in log if e["action"] == "up"]
+    return (min(downs), min(ups)) if downs else (np.nan, np.nan)
+
+
+def _mean(x: np.ndarray) -> float:
+    return float(x.mean()) if len(x) else np.nan
+
+
+def fault_table(runs: pd.DataFrame, s: dict) -> pd.DataFrame:
+    """One row per run: event accounting, continuity, recovery, chain behaviour and prediction identity."""
+    ref_rows = {m: pd.read_parquet(s["rows"] / f"reference_{m}_recover.parquet").set_index("event_id")
+                for m in ("batch", "per_event")}
+    ref_alerts = {r.fault_run["mode"]: r.alerts for _, r in runs.iterrows() if r.fault_run["scenario"] == "reference"}
+    out = []
+    for _, r in runs.iterrows():
+        k, f = r.fault_run, r.faults
+        m, tl = f["messages"], np.array(f["timeline"], dtype=float).reshape(-1, 3)
+        tl = tl[tl[:, 1] > 0]
+        t, n, lat = tl[:, 0], tl[:, 1], tl[:, 2] / 1000
+        generated = t - lat
+        down, up = _fault_window(r)
+        if np.isnan(down):                                       # the reference: same window, nothing fails
+            down, up = 30.0, 60.0
+        end = t.max()
+        ref = ref_rows[k["mode"]]
+        rows = pd.read_parquet(s["rows"] / f"{k['key']}.parquet").set_index("event_id")[PRED_COLUMNS]
+        common = rows.index.intersection(ref.index)
+        missing = ref.loc[ref.index.difference(rows.index)]   # lost, or never sent by a device that was off
+        unsent = f["counts"].get("unsent_device_off", 0)
+        blocks = np.array(f["block_times_s"] or [])
+        after_up = blocks[blocks >= up]
+        resync = [e for e in f["log"] if e["action"] == "resynced"]
+        out.append({
+            "scenario": k["scenario"], "mode": k["mode"], "policy": k["policy"],
+            **{key: m[key] for key in ("generated", "sent", "delivered", "lost", "duplicates", "rejected")},
+            "unsent_device_off": f["counts"].get("unsent_device_off", 0),
+            "rerouted_or_held": sum(f["counts"].get(c, 0) for c in ("rerouted_edge", "rerouted_fog", "held_for_cloud")),
+            "fault_s": round(down, 1), "repair_s": round(up, 1),
+            "longest_gap_s": float(np.diff(np.concatenate([[0.0], t])).max()),
+            "throughput_before": n[t < down].sum() / down,
+            "throughput_during": n[(t >= down) & (t < up)].sum() / (up - down),
+            "throughput_after": n[t >= up].sum() / (end - up) if end > up else np.nan,
+            "latency_before_s": _mean(lat[generated < down]),
+            "latency_fault_s": _mean(lat[(generated >= down) & (generated < up)]),
+            "latency_max_s": lat.max(),
+            # recovery: from the repair until every message generated before it has reached the cloud
+            "recovery_s": max(0.0, t[generated < up].max() - up) if (generated < up).any() else 0.0,
+            "failover_after_s": f["failovers"][0]["t_s"] - down if f["failovers"] else np.nan,
+            "failovers": len(f["failovers"]),
+            "blocks_per_s_fault": ((blocks >= down) & (blocks < up)).sum() / (up - down) if len(blocks) else np.nan,
+            "longest_block_gap_s": float(np.diff(blocks[blocks >= 0]).max()) if len(blocks) > 1 else np.nan,
+            "first_block_after_repair_s": after_up.min() - up if len(after_up) else np.nan,
+            "resync_s": "; ".join(f"{e['target']} {e['resynced_after_s']:.1f}" for e in resync),
+            # what the lost messages were in the reference run (no run has both lost and unsent messages)
+            "attack_messages_lost": int(missing.attack_label.sum()) if m["lost"] and not unsent else 0,
+            "lost_flagged_by_cloud_in_reference": int((missing.cloud_pred != "Normal").sum()) if m["lost"] else 0,
+            "alerts": r.alerts, "alerts_vs_reference": r.alerts - ref_alerts[k["mode"]],
+            "predictions_identical": float((rows.loc[common] == ref.loc[common, PRED_COLUMNS]).all(axis=1).mean()),
+            "messages_compared": len(common),
+            "failed_tx": sum(v["failed"] for v in r.chain.values()),
+            "consistent": r.chain_network["consensus"]["consistent"], "wall_s": r.resources["wall_s"],
+        })
+    return pd.DataFrame(out)
+
+
+def _shade(ax, r, **kw) -> None:
+    down, up = _fault_window(r)
+    if not np.isnan(down):
+        ax.axvspan(down, up, color=GRID, alpha=0.6, lw=0, **kw)
+
+
+def _timeline(r) -> np.ndarray:
+    """Deliveries to the cloud: [s since start, messages, latency ms], empty deliveries dropped."""
+    tl = np.array(r.faults["timeline"], dtype=float).reshape(-1, 3)
+    return tl[tl[:, 1] > 0]
+
+
+def _cumulative(r) -> tuple[np.ndarray, np.ndarray]:
+    tl = _timeline(r)
+    return np.concatenate([[0.0], tl[:, 0]]), np.concatenate([[0.0], np.cumsum(tl[:, 1])])
+
+
+def _latency(r) -> tuple[np.ndarray, np.ndarray]:
+    tl = _timeline(r)
+    return tl[:, 0] - tl[:, 2] / 1000, tl[:, 2] / 1000           # placed at the time the messages were generated
+
+
+def _fault_runs(runs: pd.DataFrame, scenario: str, mode: str = "batch") -> dict:
+    sel = runs[runs.fault_run.map(lambda k: k["scenario"] == scenario and k["mode"] == mode)]
+    return {r.fault_run["policy"]: r for _, r in sel.iterrows()}
+
+
+def _fault_panels(runs: pd.DataFrame, series, points: bool, ylabel: str, title: str, name: str, note: str,
+                  log_y: bool = False) -> None:
+    """One panel per fault (own time axis, shared y): the reference in grey, each policy in its colour."""
+    ref = _fault_runs(runs, "reference")["recover"]
+    fig, axes = plt.subplots(2, 3, figsize=(12, 6.6), sharey=True)
+    for ax, scenario in zip(axes.flat, FAULT_ORDER, strict=True):
+        found = _fault_runs(runs, scenario)
+        _shade(ax, next(iter(found.values())))
+        for policy, r in [("reference", ref), *found.items()]:
+            x, y = series(r)
+            color = INK2 if policy == "reference" else POLICY_COLOR[policy]
+            if points and policy != "reference":         # hollow on top, so identical points show both
+                ax.plot(x, y, "o", color=color, ms=6 if policy == "none" else 3.5, alpha=0.9,
+                        mfc="none" if policy == "none" else color, mew=1.2)
+            else:
+                ax.plot(x, y, color=color, lw=1.2 if policy == "reference" else 1.8,
+                        alpha=0.6 if policy == "reference" else 1, ls="--" if policy == "none" else "-")
+        ax.set_title(FAULT_LABEL[scenario], fontsize=11, loc="left", pad=6)
+        ax.set_xlim(0, None)
+        ax.grid(axis="x", visible=False)
+        if log_y:
+            ax.set_yscale("log")
+            ax.yaxis.set_major_locator(matplotlib.ticker.FixedLocator([1, 2, 5, 10, 20, 50, 100, 200]))
+            ax.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+        ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:,g}"))
+    for ax in axes[1]:
+        ax.set_xlabel("Seconds since the stream started")
+    fig.supylabel(ylabel, fontsize=11, color=INK2)
+    recover = (matplotlib.lines.Line2D([], [], color=SLOTS[0], ls="none", marker="o", ms=4) if points
+               else matplotlib.lines.Line2D([], [], color=SLOTS[0], lw=1.8))
+    none = (matplotlib.lines.Line2D([], [], color=SLOTS[1], ls="none", marker="o", ms=6, mfc="none", mew=1.2) if points
+            else matplotlib.lines.Line2D([], [], color=SLOTS[1], lw=1.8, ls="--"))
+    handles = [matplotlib.lines.Line2D([], [], color=INK2, lw=1.2, alpha=0.6), recover, none,
+               matplotlib.patches.Patch(color=GRID, alpha=0.6)]
+    labels = ["No fault", POLICY_LABEL["recover"], POLICY_LABEL["none"], "Component down"]
+    fig.suptitle(title, x=0.01, ha="left", fontsize=13, fontweight="bold")
+    fig.legend(handles, labels, loc="upper left", bbox_to_anchor=(0.01, 0.955), ncol=4, frameon=False)
+    fig.tight_layout(rect=(0, 0, 1, 0.9))
+    save(fig, name, note)
+
+
+def fig_fault_throughput(runs: pd.DataFrame) -> None:
+    _fault_panels(runs, _cumulative, False, "Messages delivered to the cloud (cumulative)",
+                  "Pipeline continuity: messages reaching the cloud while a component is down",
+                  "15_fault_continuity",
+                  "Dataset v2 realistic replay, 10,000 messages, Merkle batch mode, 4 QBFT validators at 1 block/s;"
+                  " 2 edges, 2 fogs, 1 cloud. Each component fails 30 s into the stream and is repaired 30 s later"
+                  " (2 of 4 validators: the second is repaired after the stream). A flat line is a stall; a lower end"
+                  " is loss.")
+
+
+def fig_fault_latency(runs: pd.DataFrame) -> None:
+    _fault_panels(runs, _latency, True, "Message latency (s, log scale)", "Message latency while a component is down",
+                  "16_fault_latency",
+                  "Same runs as figure 15. Each point is one micro-batch's delivery to the cloud, placed at the time"
+                  " its messages were generated; messages held for the cloud or waiting out a halted chain arrive"
+                  " late. No messages are generated while the chain is halted.", log_y=True)
+
+
+def fig_fault_loss(t: pd.DataFrame) -> None:
+    d = t[(t["mode"] == "batch") & (t.scenario != "reference")]
+    fig, ax = plt.subplots(figsize=(9, 4.2))
+    y = {sc: i for i, sc in enumerate(FAULT_ORDER)}
+    for policy, offset in (("recover", -0.12), ("none", 0.12)):
+        p = d[d.policy == policy]
+        ax.scatter(p.lost, [y[s] + offset for s in p.scenario], s=64, color=POLICY_COLOR[policy], zorder=3,
+                   edgecolors=SURFACE, linewidths=2, label=POLICY_LABEL[policy])
+        for _, row in p.iterrows():
+            label = f"{row.lost:,} ({row.lost / row.sent:.1%})"
+            if row.lost:
+                label += f", of which {row.attack_messages_lost:,} attack messages"
+            ax.annotate(label, (row.lost, y[row.scenario] + offset), xytext=(8, 0),
+                        textcoords="offset points", va="center", fontsize=8.5, color=INK2)
+    ax.set_yticks(list(y.values()), [FAULT_LABEL[s] for s in y])
+    ax.invert_yaxis()
+    ax.set_xlim(-100, d.lost.max() * 1.9 + 100)
+    ax.grid(axis="y", visible=False)
+    ax.xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:,.0f}"))
+    ax.set_xlabel("Messages lost (of the messages the devices sent)")
+    ax.set_title("Event loss: with and without recovery")
+    legend_top(ax, ncol=2)
+    save(fig, "17_fault_event_loss",
+         "Same runs as figure 15. A device that is off sends nothing: its unsent messages are not counted as lost."
+         " Validator faults are always handled by the client's failover.")
+
+
+def fig_fault_blocks(runs: pd.DataFrame) -> None:
+    fig, ax = plt.subplots(figsize=(9, 4.6))
+    styles = {"reference": (INK2, "-"), "node_down": (SLOTS[0], "-"), "quorum_lost": (SLOTS[1], "-")}
+    for scenario, (color, ls) in styles.items():
+        r = _fault_runs(runs, scenario)["recover"]
+        b = np.array(r.faults["block_times_s"])
+        b = b[b >= 0]
+        ax.step(b, np.arange(1, len(b) + 1), where="post", color=color, ls=ls, lw=1.8, label=FAULT_LABEL[scenario])
+    down, up = _fault_window(_fault_runs(runs, "node_down")["recover"])
+    ax.axvspan(down, up, color=GRID, alpha=0.6, lw=0, label="Validator(s) down")
+    ax.set_xlabel("Seconds since the stream started")
+    ax.set_ylabel("Blocks produced since the stream started")
+    ax.set_title("Block production when validators fail")
+    legend_top(ax, ncol=4)
+    save(fig, "18_fault_blocks",
+         "Merkle batch runs of figure 15. 1 of 4 down: validator 1 crashes at 30 s and restarts at 60 s; QBFT keeps"
+         " the quorum (3 of 4). 2 of 4 down: validators 2 and 3 crash at 30 s; validator 3 restarts at 60 s, which"
+         " restores the quorum; validator 2 restarts after the stream.")
+
+
+def faults(s: dict) -> None:
+    runs = load_runs(s)
+    t = fault_table(runs, s)
+    t.round(4).to_csv(TAB / "faults_summary.csv", index=False)
+    fig_fault_throughput(runs)
+    fig_fault_latency(runs)
+    fig_fault_loss(t)
+    fig_fault_blocks(runs)
+
+
 def main() -> None:
     global FIG, TAB
     parser = argparse.ArgumentParser()
@@ -539,6 +769,9 @@ def main() -> None:
     TAB.mkdir(parents=True, exist_ok=True)
     if args.set == "final_task2":
         task2(s)
+        return
+    if args.set == "final_faults":
+        faults(s)
         return
     runs = load_runs(s)
     fig_accuracy(runs, s)

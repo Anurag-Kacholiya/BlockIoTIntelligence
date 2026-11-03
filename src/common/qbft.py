@@ -52,22 +52,52 @@ def genesis_config(validators: int, block_period_s: int, accounts: list[str]) ->
     }
 
 
+def _reader(url: str, timeout: float = 30) -> Web3:
+    w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": timeout}))
+    w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)   # QBFT headers carry validators + seals in extraData
+    return w3
+
+
 @dataclass
 class Network:
     urls: list[str]
     procs: list[subprocess.Popen]
     workdir: Path
     block_period_s: int
+    args: list[list[str]]
+    env: dict
 
     @property
     def pids(self) -> list[int]:
         return [p.pid for p in self.procs]
 
+    def stop(self, i: int) -> None:
+        """Crash validator i (SIGKILL: no shutdown, as a power cut); its data directory stays."""
+        self.procs[i].kill()
+        self.procs[i].wait()
+
+    def start(self, i: int) -> None:
+        """Restart validator i with its own key, data and ports; it rejoins its peers and imports the missed blocks."""
+        if self.procs[i].poll() is None:
+            raise RuntimeError(f"validator {i} is still running")
+        with (self.workdir / f"node{i}.log").open("a") as log:
+            self.procs[i] = subprocess.Popen(self.args[i], stdout=log, stderr=subprocess.STDOUT, env=self.env)
+
+    def head(self, i: int) -> int | None:
+        """Block height of node i, or None while it does not answer."""
+        try:
+            return Web3(Web3.HTTPProvider(self.urls[i], request_kwargs={"timeout": 2})).eth.block_number
+        except Exception:
+            return None
+
+    def block_times(self) -> list[int]:
+        """Unix timestamp of every block (index = block number), read from node 0."""
+        w3 = _reader(self.urls[0])
+        return [w3.eth.get_block(n).timestamp for n in range(w3.eth.block_number + 1)]
+
     def report(self) -> dict:
         """Consensus check: every node holds the same block at the highest height they all reached."""
-        nodes = [Web3(Web3.HTTPProvider(u, request_kwargs={"timeout": 30})) for u in self.urls]
-        for w3 in nodes:     # QBFT block headers carry the validators and their seals in extraData (> 32 bytes)
-            w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+        nodes = [_reader(u) for u in self.urls]
         heads = [w3.eth.block_number for w3 in nodes]
         common = min(heads)
         hashes = {w3.eth.get_block(common).hash.hex() for w3 in nodes}
@@ -124,6 +154,7 @@ def qbft_network(validators: int | None = None, block_period_s: int | None = Non
         enodes = [f"enode://{(k / 'key.pub').read_text().strip().removeprefix('0x')}@127.0.0.1:{port}"
                   for k, port in zip(keys, p2p, strict=True)]
         logs = [workdir / f"node{i}.log" for i in range(validators)]
+        env, all_args = _env(cfg["jvm_heap"]), []
         for i, key in enumerate(keys):
             args = [str(BESU), f"--data-path={workdir / f'node{i}'}", f"--genesis-file={genesis}",
                     f"--node-private-key-file={key / 'key'}", "--p2p-host=127.0.0.1", f"--p2p-port={p2p[i]}",
@@ -134,14 +165,15 @@ def qbft_network(validators: int | None = None, block_period_s: int | None = Non
                     # refuses any more than 200 nonces ahead of the account's last confirmed one
                     f"--tx-pool-max-future-by-sender={cfg['tx_pool_max_future_by_sender']}",
                     "--sync-mode=FULL", "--logging=WARN"]
+            all_args.append(args)
             with logs[i].open("w") as log:
-                procs.append(subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT, env=_env(cfg["jvm_heap"])))
+                procs.append(subprocess.Popen(args, stdout=log, stderr=subprocess.STDOUT, env=env))
         urls = [f"http://127.0.0.1:{port}" for port in rpc]
         nodes = [Web3(Web3.HTTPProvider(u, request_kwargs={"timeout": 5})) for u in urls]
         _wait(lambda: all(w3.is_connected() for w3 in nodes), "every RPC endpoint up", 120, logs)
         _wait(lambda: all(w3.net.peer_count >= validators - 1 for w3 in nodes), "full peering", 120, logs)
         _wait(lambda: min(w3.eth.block_number for w3 in nodes) >= 2, "blocks produced on every node", 120, logs)
-        yield Network(urls, procs, workdir, block_period_s)
+        yield Network(urls, procs, workdir, block_period_s, all_args, env)   # shares `procs`: restarts are stopped too
     finally:
         for p in procs:
             p.terminate()

@@ -3,7 +3,7 @@
 import pytest
 from eth_account import Account
 
-from src.common.blockchain import Chain, LocalSigner, ReadMark
+from src.common.blockchain import Chain, Endpoints, LocalSigner, ReadMark, _Link
 from src.common.qbft import QBFT_MIX_HASH, genesis_config
 from src.pipeline import node_roles
 
@@ -55,7 +55,10 @@ def test_local_signer_uses_anvil_accounts_and_counts_nonces_per_sender():
 
 def _chain_on(heads, mark_block, head=0):
     chain = Chain.__new__(Chain)                          # no RPC endpoint needed for the sync logic
-    chain.url, chain.w3, chain.mark, chain._head = "fake", _FakeW3(heads=heads), ReadMark(), head
+    chain.endpoints = Endpoints(["fake"])
+    chain.link = _Link.__new__(_Link)
+    chain.link.endpoints, chain.link.generation, chain.link.w3 = chain.endpoints, 0, _FakeW3(heads=heads)
+    chain.mark, chain._head, chain._head_on = ReadMark(), head, 0
     chain.mark.advance(mark_block)
     return chain
 
@@ -75,6 +78,13 @@ def test_read_needs_no_rpc_when_the_node_is_known_to_be_current():
 def test_read_times_out_on_a_stuck_node():
     with pytest.raises(TimeoutError):
         _chain_on(heads=[3], mark_block=4)._sync(timeout=0.05)
+
+
+def test_after_a_failover_the_new_node_is_checked_before_a_read():
+    chain = _chain_on(heads=[5], mark_block=5, head=5)    # current on the old node: no RPC needed
+    chain.endpoints.generation = chain.link.generation = 1     # failed over since
+    chain._sync()
+    assert chain.w3.eth.head_calls == 1 and chain._head_on == 1
 
 
 def test_roles_spread_over_nodes():

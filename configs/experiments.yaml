@@ -83,3 +83,40 @@ suites:
         seeds: [42]
         rows: 5000
         replicas: [1, 5, 10, 25, 50]
+  final_faults:                # add-on after final task 2: fault tolerance (ADR Experiment F); scripts/run_faults.py
+    view: real_time
+    replay: realistic
+    rows: 10000
+    edges: 2
+    fogs: 2                    # every layer but the cloud has a peer to take over its traffic
+    seed: 42
+    chain_backend: qbft        # 4 validators, 1 block/s; nodes: gateway 0, edge-00 1, edge-01 2, fog-00 3, fog-01 0, cloud 1
+    block_period_s: 1
+    audit_writes: background
+    down_at_s: 30              # every fault starts 30 s into the stream ...
+    up_at_s: 60                # ... and is repaired 30 s later unless a fault sets its own up_at_s (null: at the end)
+    scenarios:
+      reference:               # nothing fails: the same loop and records, for comparison
+        modes: [batch, per_event]
+        faults: []
+      device_off:              # a normal sensor with 142 messages in the window that keeps sending afterwards
+        modes: [batch]
+        faults: [{target: "device:soil_moisture"}]
+      edge_down:               # edge-00 and fog-00 carry the attacked device (all attack traffic) and 3 normal sensors
+        modes: [batch]
+        policies: [recover, none]
+        faults: [{target: edge-00}]
+      fog_down:
+        modes: [batch]
+        policies: [recover, none]
+        faults: [{target: fog-00}]
+      cloud_down:              # the only cloud: recovery holds its input at the fogs (store and forward)
+        modes: [batch]
+        policies: [recover, none]
+        faults: [{target: cloud}]
+      node_down:               # validator 1 and the RPC endpoint of edge-00 and the cloud; 3 of 4 keep the quorum
+        modes: [batch, per_event]
+        faults: [{target: "node:1"}]
+      quorum_lost:             # validators 2 and 3: no quorum, the chain halts; node 3 back at 60 s restores it
+        modes: [batch, per_event]
+        faults: [{target: "node:3"}, {target: "node:2", up_at_s: null}]

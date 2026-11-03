@@ -398,6 +398,7 @@ Figure 04 (task 2 version), table `security.csv`.
   - network sizes other than 4 validators;
   - WAN delay.
 - **Next:**
-  1. the fault-tolerance add-on: stop 1 of 4 validators (QBFT should continue, f = 1), then 2 (it must halt), then
-     an edge or the fog;
+  1. ~~the fault-tolerance add-on~~: done, see [02a_fault_tolerance.md](02a_fault_tolerance.md). With 1 of 4
+     validators down the chain continued at 0.4 blocks/s; with 2 of 4 it halted and resumed 64.8 s after the quorum
+     returned. No message was lost in either case;
   2. task 3 (RQ-11), evaluated on this network (§10.7).
