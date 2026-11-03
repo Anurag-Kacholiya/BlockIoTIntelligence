@@ -10,8 +10,10 @@ MAX_ALERTS_PER_TX = 150   # keeps each recordAlerts call well under the block ga
 
 
 class FogChainClient:
-    def __init__(self, chain: Chain, sender: str, fog_id: str):
-        self.chain, self.sender, self.fog_id = chain, sender, fog_id
+    """wait=False confirms the audit records in the background: nothing on the event path reads them (final task 2)."""
+
+    def __init__(self, chain: Chain, sender: str, fog_id: str, wait: bool = True):
+        self.chain, self.sender, self.fog_id, self.wait = chain, sender, fog_id, wait
 
     def audit_alerts(self, alerts: list[AttackAlert]) -> None:
         if not alerts:
@@ -25,4 +27,4 @@ class FogChainClient:
                 id32(self.fog_id),
                 int(chunk[0].timestamp.timestamp() * 1000),
             ])
-        self.chain.send_many("fog_alert_audit", "recordAlerts", calls, self.sender, gas=10_000_000)
+        self.chain.send_many("fog_alert_audit", "recordAlerts", calls, self.sender, gas=10_000_000, wait=self.wait)

@@ -1,0 +1,84 @@
+{
+  "heart_rate": {
+    "capture": "heart_rate",
+    "compared_slice_packets": 300000,
+    "csv_rows_read": 165319,
+    "match": {
+      "matched": 165319,
+      "resolved_by_order": 0,
+      "ambiguous": 0,
+      "unmatched": 0,
+      "bad_time": 0
+    },
+    "tshark_rows_unparseable": 0.0,
+    "non_udp": {
+      "rows": 165319,
+      "rows_fully_identical": 1.0,
+      "csv_rows_unparseable": 0.0,
+      "columns_below_100pct": {}
+    },
+    "udp": {
+      "rows": 0
+    }
+  },
+  "temperature_humidity": {
+    "capture": "temperature_humidity",
+    "compared_slice_packets": 300000,
+    "csv_rows_read": 300000,
+    "match": {
+      "matched": 300000,
+      "resolved_by_order": 0,
+      "ambiguous": 0,
+      "unmatched": 0,
+      "bad_time": 0
+    },
+    "tshark_rows_unparseable": 0.0,
+    "non_udp": {
+      "rows": 293874,
+      "rows_fully_identical": 0.9999489577165724,
+      "csv_rows_unparseable": 0.0,
+      "columns_below_100pct": {
+        "tcp.ack": 1.0,
+        "tcp.seq": 1.0,
+        "mqtt.conflag.cleansess": 1.0,
+        "mqtt.conflags": 1.0,
+        "mqtt.hdrflags": 1.0,
+        "mqtt.len": 1.0,
+        "mqtt.msgtype": 1.0,
+        "mqtt.proto_len": 1.0,
+        "mqtt.protoname": 1.0,
+        "mqtt.topic": 1.0,
+        "mqtt.topic_len": 1.0,
+        "mqtt.ver": 1.0
+      }
+    },
+    "udp": {
+      "rows": 0
+    }
+  },
+  "sql_injection": {
+    "capture": "sql_injection",
+    "compared_slice_packets": 300000,
+    "csv_rows_read": 51203,
+    "match": {
+      "matched": 51203,
+      "resolved_by_order": 0,
+      "ambiguous": 0,
+      "unmatched": 0,
+      "bad_time": 0
+    },
+    "tshark_rows_unparseable": 0.0,
+    "non_udp": {
+      "rows": 51203,
+      "rows_fully_identical": 0.9994922172528954,
+      "csv_rows_unparseable": 0.0,
+      "columns_below_100pct": {
+        "http.request.method": 0.9995,
+        "http.request.version": 0.9995
+      }
+    },
+    "udp": {
+      "rows": 0
+    }
+  }
+}

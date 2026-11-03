@@ -1,0 +1,4 @@
+block_period_s,message_latency_mean_s,message_latency_p95_s
+1.0,2.747,3.016
+2.0,5.497,6.013
+5.0,13.745,15.022

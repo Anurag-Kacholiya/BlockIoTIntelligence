@@ -64,3 +64,67 @@ paths:
   prepared: data/prepared
   splits: data/splits
   manifests: experiments/manifests
+
+# ---------------------------------------------------------------------------------------------------------
+# Final task 1: real timestamps and real device identity (docs/final/01_real_timestamps_device_identity.md)
+# ---------------------------------------------------------------------------------------------------------
+realistic:
+  # CSV frame.time is local time UTC+1 (verified: only +1 h matches the capture timestamps).
+  csv_utc_offset_hours: 1
+  # A capture is split into sessions where packets are more than this many seconds apart.
+  session_gap_seconds: 3600
+  # Timestamps outside this window are corrupt (one packet in the vulnerability-scanner capture).
+  valid_time_utc: ["2021-01-01T00:00:00", "2023-01-01T00:00:00"]
+  # Raw label names that differ from the selected files.
+  label_map: {OS_Fingerprinting: Fingerprinting}
+  # Raw CSVs whose column layout is broken (every row shifted or split); rebuilt from the pcap with tshark.
+  # The same corruption affects every DDoS_UDP and MITM row in the selected files.
+  rebuild_from_pcap: [modbus, ddos_udp, mitm]
+  device_map: data/metadata/device_map.yaml
+  # Dataset v2 (scripts/build_realistic_dataset.py). Each capture is one (class, device) stratum.
+  dataset:
+    seed: 42
+    max_rows_per_stratum: 100000      # after de-duplication; keeps laptop runs practical (mid-term: 1.9 M rows)
+    random_split_stratify_on: [Attack_type, device_id]
+  # Realistic replay (src/device/simulator.py RealtimeReplay; pipeline replay="realistic").
+  replay:
+    # Fog flood alert per device: 1.5 x the highest 1-second rate of any sensor's normal traffic in the time-split
+    # training windows (sound sensor: 1,659 events/s; DDoS floods: 3,426-17,863). Multiplied by the replay speed.
+    flood_events_per_second: 2500
+  # Feature encoding for the realistic dataset. Values come from tshark (correctly aligned for every packet).
+  feature_schema:
+    # In addition to edge_iiotset.leakage_drop_columns:
+    extra_drop_columns:
+      - dns.qry.name        # free-text domain; never correctly aligned in the publisher's data (all DNS is UDP)
+    # Genuine text fields; everything else is numeric (hex and True/False decoded).
+    categorical_columns: [http.request.method, http.referer, http.request.version, mqtt.protoname, mqtt.topic]
+  paths:
+    packets: data/standardized/packets          # per-capture packet index (Parquet)
+    rebuilt: data/standardized/rebuilt          # tshark re-extractions of broken captures
+    events: data/standardized/events            # normalised rows with real timestamps + device ids
+  # capture id -> files (relative to edge_iiotset.raw_dir) and label
+  captures:
+    temperature_humidity: {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/Temperature_and_Humidity/Temperature_and_Humidity.pcap", csv: "Edge-IIoTset dataset/Normal traffic/Temperature_and_Humidity/Temperature_and_Humidity.csv"}
+    distance:             {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/Distance/Distance.pcap", csv: "Edge-IIoTset dataset/Normal traffic/Distance/Distance.csv"}
+    ph_value:             {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/phValue/phValue.pcap", csv: "Edge-IIoTset dataset/Normal traffic/phValue/phValue.csv"}
+    heart_rate:           {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/Heart_Rate/Heart_Rate.pcap", csv: "Edge-IIoTset dataset/Normal traffic/Heart_Rate/Heart_Rate.csv"}
+    water_level:          {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/Water_Level/Water_Level.pcap", csv: "Edge-IIoTset dataset/Normal traffic/Water_Level/Water_Level.csv"}
+    ir_receiver:          {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/IR_Receiver/IR_Receiver.pcap", csv: "Edge-IIoTset dataset/Normal traffic/IR_Receiver/IR_Receiver.csv"}
+    sound_sensor:         {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/Sound_Sensor/Sound_Sensor.pcap", csv: "Edge-IIoTset dataset/Normal traffic/Sound_Sensor/Sound_Sensor.csv"}
+    flame_sensor:         {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/Flame_Sensor/Flame_Sensor.pcap", csv: "Edge-IIoTset dataset/Normal traffic/Flame_Sensor/Flame_Sensor.csv"}
+    modbus:               {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/Modbus/Modbus.pcap", csv: "Edge-IIoTset dataset/Normal traffic/Modbus/Modbus.csv"}
+    soil_moisture:        {kind: normal, label: Normal, pcap: "Edge-IIoTset dataset/Normal traffic/Soil_Moisture/Soil_Moisture.pcap", csv: "Edge-IIoTset dataset/Normal traffic/Soil_Moisture/Soil_Moisture.csv"}
+    backdoor:             {kind: attack, label: Backdoor, pcap: "Edge-IIoTset dataset/Attack traffic/Backdoor_attack.pcap", csv: "Edge-IIoTset dataset/Attack traffic/Backdoor_attack.csv"}
+    ddos_http:            {kind: attack, label: DDoS_HTTP, pcap: "Edge-IIoTset dataset/Attack traffic/DDoS HTTP Flood Attacks.pcap", csv: "Edge-IIoTset dataset/Attack traffic/DDoS_HTTP_Flood_attack.csv"}
+    ddos_icmp:            {kind: attack, label: DDoS_ICMP, pcap: "Edge-IIoTset dataset/Attack traffic/DDoS ICMP Flood Attacks.pcap", csv: "Edge-IIoTset dataset/Attack traffic/DDoS_ICMP_Flood_attack.csv"}
+    ddos_tcp:             {kind: attack, label: DDoS_TCP, pcap: "Edge-IIoTset dataset/Attack traffic/DDoS TCP SYN Flood Attacks.pcap", csv: "Edge-IIoTset dataset/Attack traffic/DDoS_TCP_SYN_Flood_attack.csv"}
+    ddos_udp:             {kind: attack, label: DDoS_UDP, pcap: "Edge-IIoTset dataset/Attack traffic/DDoS UDP Flood Attacks.pcap", csv: "Edge-IIoTset dataset/Attack traffic/DDoS_UDP_Flood_attack.csv"}
+    mitm:                 {kind: attack, label: MITM, pcap: "Edge-IIoTset dataset/Attack traffic/MITM (ARP spoofing + DNS) Attack.pcap", csv: "Edge-IIoTset dataset/Attack traffic/MITM_attack.csv"}
+    os_fingerprinting:    {kind: attack, label: Fingerprinting, pcap: "Edge-IIoTset dataset/Attack traffic/OS Fingerprinting attack.pcap", csv: "Edge-IIoTset dataset/Attack traffic/OS_Fingerprinting_attack.csv"}
+    password:             {kind: attack, label: Password, pcap: "Edge-IIoTset dataset/Attack traffic/Password attacks.pcap", csv: "Edge-IIoTset dataset/Attack traffic/Password_attack.csv"}
+    port_scanning:        {kind: attack, label: Port_Scanning, pcap: "Edge-IIoTset dataset/Attack traffic/Port Scanning attack.pcap", csv: "Edge-IIoTset dataset/Attack traffic/Port_Scanning_attack.csv"}
+    ransomware:           {kind: attack, label: Ransomware, pcap: "Edge-IIoTset dataset/Attack traffic/Ransomware attack.pcap", csv: "Edge-IIoTset dataset/Attack traffic/Ransomware_attack.csv"}
+    sql_injection:        {kind: attack, label: SQL_injection, pcap: "Edge-IIoTset dataset/Attack traffic/SQL injection attack.pcap", csv: "Edge-IIoTset dataset/Attack traffic/SQL_injection_attack.csv"}
+    uploading:            {kind: attack, label: Uploading, pcap: "Edge-IIoTset dataset/Attack traffic/Uploading attack.pcap", csv: "Edge-IIoTset dataset/Attack traffic/Uploading_attack.csv"}
+    vulnerability_scanner: {kind: attack, label: Vulnerability_scanner, pcap: "Edge-IIoTset dataset/Attack traffic/Vulnerability scanner attack.pcap", csv: "Edge-IIoTset dataset/Attack traffic/Vulnerability_scanner_attack.csv"}
+    xss:                  {kind: attack, label: XSS, pcap: "Edge-IIoTset dataset/Attack traffic/XSS attacks.pcap", csv: "Edge-IIoTset dataset/Attack traffic/XSS_attack.csv"}

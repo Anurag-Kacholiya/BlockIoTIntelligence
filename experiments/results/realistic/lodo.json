@@ -1,0 +1,8 @@
+{
+  "seed": 42,
+  "cloud_family": "random_forest",
+  "canonical_hash": "sha256:fa51b8db76a21e8c118c53107462471dac351af916f19e62b8021831999f9945",
+  "max_train_rows": 300000,
+  "git_commit": "b3fb6936cefb4a7d66fe646b5fa9d96aa4b81924",
+  "config_hash": "a961572bcd7c8c8b59e5c7ee1ba3cf811423d2e8b97df5aea710ff2c94914191"
+}

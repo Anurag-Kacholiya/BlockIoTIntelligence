@@ -11,7 +11,7 @@ from src.common.schemas import Layer
 
 @pytest.fixture
 def registry(tmp_path, monkeypatch):
-    monkeypatch.setattr(model_registry, "_layer_dir", lambda layer: tmp_path / layer.name.lower())
+    monkeypatch.setattr(model_registry, "layer_dir", lambda layer: tmp_path / layer.name.lower())
     return tmp_path
 
 

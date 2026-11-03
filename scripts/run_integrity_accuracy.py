@@ -9,13 +9,17 @@ finds it differs from the on-chain commitment, rejects the event and raises an i
 Attack detection counts an attack event as caught if it is rejected for integrity OR the cloud
 classifies it as an attack.
 
-  python scripts/run_integrity_accuracy.py [--rows 20000] [--mode batch]
+  python scripts/run_integrity_accuracy.py [--rows 20000] [--mode batch] [--replay realistic]
+
+--replay realistic streams dataset v2 (real devices and timing) with the view real_time models and writes
+experiments/results/realistic/integrity_accuracy.{csv,json}; the default writes the mid-term exp_integrity_accuracy.*.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -72,21 +76,27 @@ def main() -> None:
     parser.add_argument("--mode", choices=["per_event", "batch"], default="batch")
     parser.add_argument("--rates", default="0,0.1,0.25,0.5")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--replay", choices=["random", "realistic"], default="random")
     args = parser.parse_args()
+    if args.replay == "realistic":
+        os.environ["BLOCKIOT_VIEW"] = "real_time"      # the only models that never saw the replayed window
 
     records = []
     for rate in [float(x) for x in args.rates.split(",")]:
         for mode in (None, args.mode):
             attacker = Camouflage(rate, args.seed)
             result = run(experiment="integrity_accuracy", blockchain=mode, n_rows=args.rows, seed=args.seed,
-                         interceptor=attacker, log=lambda *_: None)
+                         replay=args.replay, interceptor=attacker, log=lambda *_: None)
             rec = {"tamper_rate": rate, "mode": mode or "baseline", **score(result, attacker)}
             records.append(rec)
             print({k: round(v, 4) if isinstance(v, float) else v for k, v in rec.items()}, flush=True)
 
-    out = resolve(load_config("base")["paths"]["results"])
-    pd.DataFrame(records).to_csv(out / "exp_integrity_accuracy.csv", index=False)
-    (out / "exp_integrity_accuracy.json").write_text(json.dumps({"args": vars(args), "records": records}, indent=2))
+    out, name = resolve(load_config("base")["paths"]["results"]), "exp_integrity_accuracy"
+    if args.replay == "realistic":
+        out, name = out / "realistic", "integrity_accuracy"
+    out.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(records).to_csv(out / f"{name}.csv", index=False)
+    (out / f"{name}.json").write_text(json.dumps({"args": vars(args), "records": records}, indent=2))
 
 
 if __name__ == "__main__":

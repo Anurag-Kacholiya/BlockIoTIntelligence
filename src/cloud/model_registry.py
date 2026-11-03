@@ -14,7 +14,7 @@ import joblib
 import pandas as pd
 import sklearn
 
-from src.common.config import load_config, resolve
+from src.common.config import active_view, load_config, resolve
 from src.common.crypto import hash_file, hash_object
 from src.common.schemas import Layer, ModelMetadata
 
@@ -23,13 +23,19 @@ class ModelIntegrityError(RuntimeError):
     pass
 
 
-def _layer_dir(layer: Layer) -> Path:
-    return resolve(load_config("base")["paths"]["models"]) / layer.name.lower()
+def layer_dir(layer: Layer) -> Path:
+    """models/<layer> for the mid-term view; models/<view>/<layer> for any other view, so training on one view
+    never replaces another view's deployed models."""
+    root = resolve(load_config("base")["paths"]["models"])
+    view = active_view()
+    if view != load_config("datasets")["edge_iiotset"]["primary"]:
+        root = root / view
+    return root / layer.name.lower()
 
 
 def save_model(model, *, layer: Layer, family: str, features: list[str], training_data_hash: str,
                hyperparameters: dict, metrics: dict[str, float], deploy: bool = True) -> ModelMetadata:
-    directory = _layer_dir(layer)
+    directory = layer_dir(layer)
     directory.mkdir(parents=True, exist_ok=True)
     tmp = directory / f".{family}.joblib.tmp"
     joblib.dump(model, tmp)
@@ -59,7 +65,7 @@ def save_model(model, *, layer: Layer, family: str, features: list[str], trainin
 
 def load_model(layer: Layer, model_id: str | None = None) -> tuple[object, dict]:
     """Load the deployed (or named) model for a layer after verifying its fingerprint."""
-    directory = _layer_dir(layer)
+    directory = layer_dir(layer)
     model_id = model_id or json.loads((directory / "current.json").read_text())["model_id"]
     record = json.loads((directory / f"{model_id}.json").read_text())
     artifact = directory / record["artifact"]
@@ -75,13 +81,19 @@ class DeployedModel:
         self.model, self.record = load_model(layer, model_id)
         self.features: list[str] = self.record["features"]
         self.model_id: str = self.record["model_id"]
-        self.path: Path = _layer_dir(layer) / self.record["artifact"]
+        self.path: Path = layer_dir(layer) / self.record["artifact"]
 
-    def predict(self, events: list[dict]) -> tuple[list, list[float]]:
-        """Return (predicted class, confidence in that class) for each event's `values`."""
+    def predict(self, events: list[dict]) -> tuple[list, list[float], list[float] | None]:
+        """Return (predicted class, confidence in that class, P(attack)) for each event's `values`.
+
+        P(attack) is the probability of class 1 for binary models (None for multiclass); it is the score
+        ROC-AUC needs. Confidence in the *predicted* class is not, because it is high for both answers.
+        """
         if not events:
-            return [], []
+            return [], [], []
         frame = pd.DataFrame.from_records([e["values"] for e in events], columns=self.features)
         proba = self.model.predict_proba(frame)
         best = proba.argmax(axis=1)
-        return self.model.classes_[best].tolist(), proba.max(axis=1).tolist()
+        classes = list(self.model.classes_)
+        attack = proba[:, classes.index(1)].tolist() if 1 in classes else None
+        return self.model.classes_[best].tolist(), proba.max(axis=1).tolist(), attack

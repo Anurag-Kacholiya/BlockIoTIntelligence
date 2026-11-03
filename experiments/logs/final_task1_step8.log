@@ -1,0 +1,108 @@
+== integrity
+{'tamper_rate': 0.0, 'mode': 'baseline', 'attack_detection_rate': np.float64(0.8592), 'tampered_attack_detection_rate': nan, 'normal_false_positive_rate': np.float64(0.0016), 'integrity_rejections': 0, 'tampered_events': 0, 'throughput_eps': 13296.5477}
+{'tamper_rate': 0.0, 'mode': 'batch', 'attack_detection_rate': np.float64(0.8592), 'tampered_attack_detection_rate': nan, 'normal_false_positive_rate': np.float64(0.0016), 'integrity_rejections': 0, 'tampered_events': 0, 'throughput_eps': 1978.4357}
+{'tamper_rate': 0.1, 'mode': 'baseline', 'attack_detection_rate': np.float64(0.7734), 'tampered_attack_detection_rate': np.float64(0.0018), 'normal_false_positive_rate': np.float64(0.0016), 'integrity_rejections': 0, 'tampered_events': 559, 'throughput_eps': 11778.7278}
+{'tamper_rate': 0.1, 'mode': 'batch', 'attack_detection_rate': np.float64(0.8729), 'tampered_attack_detection_rate': np.float64(1.0), 'normal_false_positive_rate': np.float64(0.0016), 'integrity_rejections': 559, 'tampered_events': 559, 'throughput_eps': 1786.0243}
+{'tamper_rate': 0.25, 'mode': 'baseline', 'attack_detection_rate': np.float64(0.6472), 'tampered_attack_detection_rate': np.float64(0.0043), 'normal_false_positive_rate': np.float64(0.0016), 'integrity_rejections': 0, 'tampered_events': 1408, 'throughput_eps': 12947.5286}
+{'tamper_rate': 0.25, 'mode': 'batch', 'attack_detection_rate': np.float64(0.8971), 'tampered_attack_detection_rate': np.float64(1.0), 'normal_false_positive_rate': np.float64(0.0016), 'integrity_rejections': 1408, 'tampered_events': 1408, 'throughput_eps': 1735.957}
+{'tamper_rate': 0.5, 'mode': 'baseline', 'attack_detection_rate': np.float64(0.4387), 'tampered_attack_detection_rate': np.float64(0.0057), 'normal_false_positive_rate': np.float64(0.0016), 'integrity_rejections': 0, 'tampered_events': 2797, 'throughput_eps': 13002.7774}
+{'tamper_rate': 0.5, 'mode': 'batch', 'attack_detection_rate': np.float64(0.9344), 'tampered_attack_detection_rate': np.float64(1.0), 'normal_false_positive_rate': np.float64(0.0016), 'integrity_rejections': 2796, 'tampered_events': 2797, 'throughput_eps': 1501.9697}
+== security
+pass done: tamper
+pass done: replay_same_edge
+pass done: replay_cross_edge
+pass done: unregistered_device
+pass done: impersonation
+      mode                                  attack  events  rejected  false_reject_rate  detection_rate  false_accept_rate
+  baseline              legitimate (during tamper)    2870         0              0.000             NaN                NaN
+  baseline                                  tamper     130         0                NaN           0.000              1.000
+blockchain              legitimate (during tamper)    2870         0              0.000             NaN                NaN
+blockchain                                  tamper     130       130                NaN           1.000              0.000
+  baseline    legitimate (during replay_same_edge)    3000         0              0.000             NaN                NaN
+  baseline                        replay_same_edge     134       134                NaN           1.000              0.000
+blockchain    legitimate (during replay_same_edge)    3000         0              0.000             NaN                NaN
+blockchain                        replay_same_edge     134       134                NaN           1.000              0.000
+  baseline   legitimate (during replay_cross_edge)    3000         0              0.000             NaN                NaN
+  baseline                       replay_cross_edge     134        87                NaN           0.649              0.351
+blockchain   legitimate (during replay_cross_edge)    3000         0              0.000             NaN                NaN
+blockchain                       replay_cross_edge     134       134                NaN           1.000              0.000
+  baseline legitimate (during unregistered_device)    3000         0              0.000             NaN                NaN
+  baseline                     unregistered_device     140         0                NaN           0.000              1.000
+blockchain legitimate (during unregistered_device)    3000         0              0.000             NaN                NaN
+blockchain                     unregistered_device     140       140                NaN           1.000              0.000
+  baseline       legitimate (during impersonation)    3000      2685              0.895             NaN                NaN
+  baseline                           impersonation     140         0                NaN           0.000              1.000
+blockchain       legitimate (during impersonation)    3000         0              0.000             NaN                NaN
+blockchain                           impersonation     140       140                NaN           1.000              0.000
+  baseline              model_tamper_artifact_only       1         1                NaN           1.000              0.000
+  baseline        model_tamper_artifact_and_record       1         0                NaN           0.000              1.000
+blockchain              model_tamper_artifact_only       1         1                NaN           1.000              0.000
+blockchain        model_tamper_artifact_and_record       1         1                NaN           1.000              0.000
+blockchain               unauthorized_ledger_write       1         1                NaN           1.000              0.000
+edge verification cost per event (ms): {'baseline': 0.052, 'blockchain': 5.972}
+detected by: {
+ "legitimate (during tamper)": "{}",
+ "tamper": "{\"hash_mismatch\": 130}",
+ "legitimate (during replay_same_edge)": "{}",
+ "replay_same_edge": "{\"duplicate_event\": 134}",
+ "legitimate (during replay_cross_edge)": "{}",
+ "replay_cross_edge": "{\"replay_already_processed\": 134}",
+ "legitimate (during unregistered_device)": "{}",
+ "unregistered_device": "{\"unregistered_device\": 140}",
+ "legitimate (during impersonation)": "{}",
+ "impersonation": "{\"identity_mismatch\": 140}",
+ "model_tamper_artifact_only": "{\"local record mismatch\": 1}",
+ "model_tamper_artifact_and_record": "{\"on-chain registry mismatch\": 1}",
+ "unauthorized_ledger_write": "{\"contract_revert_NotAuthorized\": 1}"
+}
+== suite
+[1/24] {'group': 'comparison', 'mode': 'baseline', 'seed': 42, 'rows': 10000, 'devices': None, 'edges': 2, 'fogs': 1}
+    12,415 ev/s, e2e/event 0.074 ms
+[2/24] {'group': 'comparison', 'mode': 'per_event', 'seed': 42, 'rows': 10000, 'devices': None, 'edges': 2, 'fogs': 1}
+    38 ev/s, e2e/event 26.538 ms
+[3/24] {'group': 'comparison', 'mode': 'batch', 'seed': 42, 'rows': 10000, 'devices': None, 'edges': 2, 'fogs': 1}
+    1,911 ev/s, e2e/event 0.517 ms
+[4/24] {'group': 'comparison', 'mode': 'baseline', 'seed': 43, 'rows': 10000, 'devices': None, 'edges': 2, 'fogs': 1}
+    12,253 ev/s, e2e/event 0.076 ms
+[5/24] {'group': 'comparison', 'mode': 'per_event', 'seed': 43, 'rows': 10000, 'devices': None, 'edges': 2, 'fogs': 1}
+    38 ev/s, e2e/event 26.580 ms
+[6/24] {'group': 'comparison', 'mode': 'batch', 'seed': 43, 'rows': 10000, 'devices': None, 'edges': 2, 'fogs': 1}
+    1,904 ev/s, e2e/event 0.520 ms
+[7/24] {'group': 'comparison', 'mode': 'baseline', 'seed': 44, 'rows': 10000, 'devices': None, 'edges': 2, 'fogs': 1}
+    12,799 ev/s, e2e/event 0.073 ms
+[8/24] {'group': 'comparison', 'mode': 'per_event', 'seed': 44, 'rows': 10000, 'devices': None, 'edges': 2, 'fogs': 1}
+    38 ev/s, e2e/event 26.515 ms
+[9/24] {'group': 'comparison', 'mode': 'batch', 'seed': 44, 'rows': 10000, 'devices': None, 'edges': 2, 'fogs': 1}
+    1,892 ev/s, e2e/event 0.523 ms
+[10/24] {'group': 'scaling', 'mode': 'baseline', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 1, 'edges': 2, 'fogs': 1}
+    12,577 ev/s, e2e/event 0.074 ms
+[11/24] {'group': 'scaling', 'mode': 'batch', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 1, 'edges': 2, 'fogs': 1}
+    2,035 ev/s, e2e/event 0.486 ms
+[12/24] {'group': 'scaling', 'mode': 'per_event', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 1, 'edges': 2, 'fogs': 1}
+    62 ev/s, e2e/event 16.053 ms
+[13/24] {'group': 'scaling', 'mode': 'baseline', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 5, 'edges': 2, 'fogs': 1}
+    12,279 ev/s, e2e/event 0.076 ms
+[14/24] {'group': 'scaling', 'mode': 'batch', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 5, 'edges': 2, 'fogs': 1}
+    823 ev/s, e2e/event 1.210 ms
+[15/24] {'group': 'scaling', 'mode': 'per_event', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 5, 'edges': 2, 'fogs': 1}
+    60 ev/s, e2e/event 16.730 ms
+[16/24] {'group': 'scaling', 'mode': 'baseline', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 10, 'edges': 2, 'fogs': 1}
+    12,132 ev/s, e2e/event 0.077 ms
+[17/24] {'group': 'scaling', 'mode': 'batch', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 10, 'edges': 2, 'fogs': 1}
+    498 ev/s, e2e/event 2.004 ms
+[18/24] {'group': 'scaling', 'mode': 'per_event', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 10, 'edges': 2, 'fogs': 1}
+    62 ev/s, e2e/event 16.135 ms
+[19/24] {'group': 'scaling', 'mode': 'baseline', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 25, 'edges': 2, 'fogs': 1}
+    11,471 ev/s, e2e/event 0.076 ms
+[20/24] {'group': 'scaling', 'mode': 'batch', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 25, 'edges': 2, 'fogs': 1}
+    233 ev/s, e2e/event 4.287 ms
+[21/24] {'group': 'scaling', 'mode': 'per_event', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 25, 'edges': 2, 'fogs': 1}
+    61 ev/s, e2e/event 16.340 ms
+[22/24] {'group': 'scaling', 'mode': 'baseline', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 50, 'edges': 2, 'fogs': 1}
+    11,957 ev/s, e2e/event 0.078 ms
+[23/24] {'group': 'scaling', 'mode': 'batch', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 50, 'edges': 2, 'fogs': 1}
+    136 ev/s, e2e/event 7.357 ms
+[24/24] {'group': 'scaling', 'mode': 'per_event', 'seed': 42, 'rows': 5000, 'devices': None, 'replicas': 50, 'edges': 2, 'fogs': 1}
+    60 ev/s, e2e/event 16.789 ms
+results: /Users/sivasai11/PG/1-3/RIS/PROJECT/BlockIoTIntelligence/experiments/results/final_task1/runs.jsonl
+STEP8_EXPERIMENTS_DONE

@@ -13,13 +13,16 @@ from src.common.config import load_config
 
 TARGETS = ["Attack_label", "Attack_type"]
 PROVENANCE = ["source_row_id"]
+# Dataset v2 (realistic) row metadata: real time, session and device. Used for splitting and replay, never a feature.
+METADATA = ["capture", "device_id", "packet_no", "ts_us", "session", "src_ip", "dst_ip", "ip_proto", "ethertype",
+            "publisher_selected", "time_partition"]
 
 # Absent-value placeholders appear as both "0" and "0.0" in the categorical columns.
 _ZERO = {"0", "0.0", ""}
 
 
 def feature_columns(df: pd.DataFrame) -> list[str]:
-    return [c for c in df.columns if c not in TARGETS + PROVENANCE]
+    return [c for c in df.columns if c not in TARGETS + PROVENANCE + METADATA]
 
 
 def clean(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict], dict]:

@@ -36,7 +36,7 @@ make test
 Toolchain lives inside the project (`tools/`, `.venv/`, both git-ignored). On Apple Silicon:
 
 ```bash
-python3 -m venv --system-site-packages .venv && .venv/bin/pip install "web3>=7,<8"
+python3 -m venv --system-site-packages .venv && .venv/bin/pip install "web3>=7,<8" coincurve==21.0.0
 mkdir -p tools/foundry tools/solc
 curl -L https://github.com/foundry-rs/foundry/releases/download/stable/foundry_stable_darwin_arm64.tar.gz | tar -xz -C tools/foundry
 curl -L -o tools/solc/solc-0.8.24 "https://binaries.soliditylang.org/macosx-amd64/solc-macosx-amd64-v0.8.24+commit.e11b9ed9"
@@ -50,6 +50,49 @@ scripts/run_presentation1.sh && .venv/bin/python scripts/make_figures.py  # all 
 
 Each run starts its own private Anvil chain, deploys `IoTRegistry`, registers devices and models, and stops the
 chain afterwards. Results and figures: [docs/presentation1/README.md](docs/presentation1/README.md).
+
+Data used at the mid-term and planned for the final: [docs/DATA_USAGE.md](docs/DATA_USAGE.md).
+
+## Dataset v2: real timestamps and real devices (final task 1)
+
+Needs all 52 dataset files (`make data`) and Wireshark's `tshark` (`brew install wireshark`).
+
+```bash
+.venv/bin/python scripts/validate_tshark_extraction.py     # tshark features vs the publisher's CSVs
+.venv/bin/python scripts/build_realistic_events.py         # 24 pcaps -> per-packet events (~15 min)
+.venv/bin/python scripts/build_realistic_dataset.py        # dataset v2 + splits A (random) and B (time)
+for v in real_time real_random; do BLOCKIOT_VIEW=$v .venv/bin/python scripts/train_models.py; done
+.venv/bin/python scripts/run_realistic_eval.py offline     # test-split metrics, per device and per class
+.venv/bin/python scripts/run_realistic_eval.py lodo        # split C: leave one device out (~10 folds)
+.venv/bin/python scripts/run_realistic_eval.py replay --rows 200000 [--blockchain batch]
+scripts/run_final_task1.sh --step8-only     # tampering, security, comparison + scaling on the replay; figures
+```
+
+`scripts/run_final_task1.sh` without the flag reproduces all of task 1. Figures and tables: `docs/final/task1/`.
+
+`BLOCKIOT_VIEW` selects the data view, the stream and the model folder together (`models/<view>/`); without it,
+everything uses the mid-term view and models. Design and results:
+[docs/final/01_real_timestamps_device_identity.md](docs/final/01_real_timestamps_device_identity.md).
+
+## Multi-node blockchain: 4 QBFT validators (final task 2)
+
+Needs Java 21+. Each experiment starts a fresh private network of 4 Hyperledger Besu validators (QBFT consensus,
+one block per second) as local processes; the layers write and read through different nodes.
+
+```bash
+.venv/bin/python scripts/setup_besu.py              # pinned Besu release, SHA-256 checked, into tools/besu
+.venv/bin/python scripts/run_multinode.py check     # write through node 0, read back through node 3
+scripts/run_final_task2.sh                          # all task 2 experiments + figures (~1 h 45 min)
+```
+
+Figures and tables: `docs/final/task2/`. Design and results:
+[docs/final/02_multi_node_blockchain.md](docs/final/02_multi_node_blockchain.md).
+
+Headline results at one block per second:
+- message latency 2.75 s in Merkle batch mode, the same as one node with the same block time (consensus adds
+  ~34 ms per confirmation);
+- all 8 attacks still blocked, no genuine message rejected;
+- accuracy and gas identical to the single node.
 
 ## Layout
 

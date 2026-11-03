@@ -26,3 +26,60 @@ suites:
       seed: 42
       edges: 2
       fogs: 1
+
+  # Final task 1, step 8: the same comparison and scaling on dataset v2's realistic replay (real devices and timing,
+  # models trained on the time split). The replayed messages are the same test-window slices in every run; a seed
+  # changes only event ids and device keys.
+  final_task1:
+    view: real_time
+    replay: realistic
+    comparison:
+      modes: [baseline, per_event, batch]
+      seeds: [42, 43, 44]
+      rows: 10000
+      edges: 2
+      fogs: 1
+    # E: each of the 10 real devices split round-robin over k devices of its type -> 10, 50, 100, 250, 500 devices,
+    # the same 5,000 messages and timing (as the mid-term: more devices, same traffic).
+    scaling:
+      modes: [baseline, batch, per_event]
+      replicas: [1, 5, 10, 25, 50]
+      rows: 5000
+      seed: 42
+      edges: 2
+      fogs: 1
+
+  # Final task 2: the same dataset v2 workload on a single node and on a 4-validator QBFT network
+  # (scripts/run_multinode.py). The client is identical in every group: transactions signed locally, fog alert and
+  # cloud inference records confirmed in the background unless a group says otherwise. Chains:
+  #   anvil/null = one node mining every transaction at once (the mid-term and task 1 setup)
+  #   anvil/1    = one node, one block per second (block time without consensus)
+  #   qbft/1     = 4 Besu validators, QBFT consensus, one block per second
+  final_task2:
+    view: real_time
+    replay: realistic
+    signing: local
+    audit_writes: background
+    rows: 10000
+    edges: 2
+    fogs: 1
+    groups:
+      comparison:                # T2.1 what consensus and block time cost
+        chains: [[anvil, null], [anvil, 1], [qbft, 1]]
+        modes: [per_event, batch]
+        seeds: [42, 43, 44]
+      await_all:                 # T2.2 the task 1 client (every write awaited) on the QBFT network
+        chains: [[qbft, 1]]
+        modes: [per_event, batch]
+        seeds: [42]
+        audit_writes: await
+      block_period:              # T2.3 longer block periods (1 s is in comparison)
+        chains: [[qbft, 2], [qbft, 5]]
+        modes: [batch]
+        seeds: [42]
+      scaling:                   # T2.4 devices on the QBFT network (each real device split over k), vs final_task1
+        chains: [[qbft, 1]]
+        modes: [batch, per_event]
+        seeds: [42]
+        rows: 5000
+        replicas: [1, 5, 10, 25, 50]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,12 @@ def config_hash(*names: str) -> str:
     """SHA-256 over the parsed content of the named configs, for experiment manifests (ADR §19.1)."""
     payload = {n: load_config(n) for n in sorted(names)}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def active_view() -> str:
+    """The dataset view a run trains on, streams from and loads models for: configs/models.yaml training.view,
+    overridable per run with the BLOCKIOT_VIEW environment variable (e.g. real_time for dataset v2)."""
+    return os.environ.get("BLOCKIOT_VIEW") or load_config("models")["training"]["view"]
 
 
 def resolve(path: str | Path) -> Path:

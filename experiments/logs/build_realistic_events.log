@@ -1,0 +1,36 @@
+temperature_humidity   rows=1,629,749 selected=1,615,712 match={'csv_rows': 1615722, 'matched': 1615692, 'resolved_by_order': 20, 'ambiguous': 10} unparseable=0 sessions=5 (63.2s)
+distance               rows=1,143,948 selected=1,143,540 match={'csv_rows': 1143540, 'matched': 1143540} unparseable=0 sessions=1 (42.8s)
+ph_value               rows=  759,665 selected=  746,908 match={'csv_rows': 746908, 'matched': 746908} unparseable=0 sessions=1 (28.0s)
+heart_rate             rows=  170,435 selected=  165,319 match={'csv_rows': 165319, 'matched': 165319} unparseable=0 sessions=1 (6.4s)
+water_level            rows=2,302,497 selected=2,295,288 match={'csv_rows': 2295288, 'matched': 2295288} unparseable=0 sessions=2 (86.3s)
+ir_receiver            rows=1,308,238 selected=1,307,778 match={'csv_rows': 1307778, 'matched': 1307778} unparseable=0 sessions=1 (48.5s)
+sound_sensor           rows=1,513,318 selected=1,512,883 match={'csv_rows': 1512883, 'matched': 1512883} unparseable=0 sessions=1 (56.2s)
+flame_sensor           rows=1,070,510 selected=1,070,196 match={'csv_rows': 1070196, 'matched': 1070196} unparseable=0 sessions=1 (40.3s)
+modbus                 rows=  159,514 selected=  159,514 match={} unparseable=0 sessions=2 (5.5s)
+soil_moisture          rows=1,200,751 selected=1,192,777 match={'csv_rows': 1192777, 'matched': 1192777} unparseable=0 sessions=1 (44.6s)
+backdoor               rows=   24,914 selected=   24,862 match={'csv_rows': 24862, 'matched': 24862} unparseable=0 sessions=2 (1.3s)
+ddos_http              rows=  229,142 selected=  229,022 match={'csv_rows': 229022, 'matched': 229022} unparseable=0 sessions=1 (9.1s)
+ddos_icmp              rows=2,914,356 selected=2,914,354 match={'csv_rows': 2914354, 'matched': 2914353, 'resolved_by_order': 1} unparseable=0 sessions=1 (89.2s)
+ddos_tcp               rows=2,020,152 selected=2,020,120 match={'csv_rows': 2020120, 'matched': 2020120} unparseable=0 sessions=1 (81.1s)
+ddos_udp               rows=3,215,732 selected=3,215,732 match={} unparseable=0 sessions=1 (82.4s)
+mitm                   rows=    1,229 selected=    1,229 match={} unparseable=0 sessions=1 (0.3s)
+os_fingerprinting      rows=    1,176 selected=    1,001 match={'csv_rows': 1001, 'matched': 1001} unparseable=0 sessions=1 (0.2s)
+password               rows=1,053,893 selected=1,053,385 match={'csv_rows': 1053385, 'matched': 1053385} unparseable=0 sessions=2 (46.1s)
+port_scanning          rows=   23,329 selected=   22,564 match={'csv_rows': 22564, 'matched': 22564} unparseable=0 sessions=1 (1.1s)
+ransomware             rows=   11,030 selected=   10,925 match={'csv_rows': 10925, 'matched': 10925} unparseable=0 sessions=2 (0.6s)
+sql_injection          rows=   51,228 selected=   51,203 match={'csv_rows': 51203, 'matched': 51203} unparseable=0 sessions=1 (2.2s)
+uploading              rows=   37,644 selected=   37,634 match={'csv_rows': 37634, 'matched': 37634} unparseable=0 sessions=1 (1.6s)
+Traceback (most recent call last):
+  File "/Users/sivasai11/PG/1-3/RIS/PROJECT/BlockIoTIntelligence/scripts/build_realistic_events.py", line 134, in <module>
+    main()
+    ~~~~^^
+  File "/Users/sivasai11/PG/1-3/RIS/PROJECT/BlockIoTIntelligence/scripts/build_realistic_events.py", line 125, in main
+    m = build_capture(capture)
+  File "/Users/sivasai11/PG/1-3/RIS/PROJECT/BlockIoTIntelligence/scripts/build_realistic_events.py", line 71, in build_capture
+    tsv = extract_to_tsv(raw_dir / spec["pcap"], resolve(real["paths"]["rebuilt"]) / f"{capture}.tsv")
+  File "/Users/sivasai11/PG/1-3/RIS/PROJECT/BlockIoTIntelligence/src/data/ingestion/tshark_extract.py", line 51, in extract_to_tsv
+    raise RuntimeError(f"tshark failed on {pcap}: {proc.stderr.strip()[:500]}")
+RuntimeError: tshark failed on /Users/sivasai11/PG/1-3/RIS/PROJECT/BlockIoTIntelligence/data/external/edge_iiotset/raw/Edge-IIoTset dataset/Attack traffic/Vulnerability scanner attack.pcap: tshark: The file "/Users/sivasai11/PG/1-3/RIS/PROJECT/BlockIoTIntelligence/data/external/edge_iiotset/raw/Edge-IIoTset dataset/Attack traffic/Vulnerability scanner attack.pcap" appears to be damaged or corrupt.
+(pcap: File has 136146411-byte packet, bigger than maximum of 262144)
+vulnerability_scanner  rows=  265,827 selected=  145,869 match={'csv_rows': 145869, 'matched': 145869} unparseable=0 sessions=1 (13.3s)
+xss                    rows=   16,215 selected=   15,915 match={'csv_rows': 15915, 'matched': 15915} unparseable=0 sessions=1 (0.8s)

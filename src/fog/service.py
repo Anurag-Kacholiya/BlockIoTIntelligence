@@ -24,7 +24,7 @@ class FogNode:
     def process(self, edge_batches: list[list[dict]]) -> dict:
         """Merge the batches from all connected edges and analyse them together."""
         events = [e for batch in edge_batches for e in batch]
-        predictions, confidence = self.model.predict(events)
+        predictions, confidence, _ = self.model.predict(events)
         batch_alerts = []
         for event, pred, conf in zip(events, predictions, confidence, strict=True):
             stats = self.traffic.observe(event["device_id"], event["timestamp"])

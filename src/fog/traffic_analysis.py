@@ -1,8 +1,9 @@
 """Windowed per-device traffic statistics on replay time (ADR §7.5, plan step 7).
 
 These are operational features for flood/replay detection and alerting. They are deliberately NOT
-inputs to the multiclass classifier: replay time is derived, so any class signal in it would be an
-artefact of the simulator rather than of the dataset.
+inputs to the multiclass classifier: in the random replay, time is derived, so any class signal in it would
+be an artefact of the simulator; in the realistic replay it is real, but the classifier stays on packet
+features so its results remain comparable with the mid-term.
 """
 
 from __future__ import annotations

@@ -17,9 +17,10 @@ class DeviceLayer:
         self.ledger = ledger
 
     def process(self, events: list[dict]) -> list[dict]:
-        predictions, confidence = self.model.predict(events)
-        for event, pred, conf in zip(events, predictions, confidence, strict=True):
-            event["device_inference"] = {"model_id": self.model.model_id, "prediction": int(pred), "score": conf}
+        predictions, confidence, attack_prob = self.model.predict(events)
+        for event, pred, conf, p_attack in zip(events, predictions, confidence, attack_prob, strict=True):
+            event["device_inference"] = {"model_id": self.model.model_id, "prediction": int(pred), "score": conf,
+                                         "attack_probability": p_attack}
         if self.ledger is not None:
             self.ledger.commit_events(events)
         return events

@@ -1,0 +1,15 @@
+,,accuracy,accuracy,f1_macro,f1_macro
+,,mean,std,mean,std
+mode,layer,,,,
+baseline,cloud,0.8736,0.0,0.7794,0.0
+baseline,device,0.79,0.0,0.7899,0.0
+baseline,edge,0.9411,0.0,0.9408,0.0
+baseline,fog,0.8805,0.0,0.7915,0.0
+batch,cloud,0.8736,0.0,0.7794,0.0
+batch,device,0.79,0.0,0.7899,0.0
+batch,edge,0.9411,0.0,0.9408,0.0
+batch,fog,0.8805,0.0,0.7915,0.0
+per_event,cloud,0.8736,0.0,0.7794,0.0
+per_event,device,0.79,0.0,0.7899,0.0
+per_event,edge,0.9411,0.0,0.9408,0.0
+per_event,fog,0.8805,0.0,0.7915,0.0

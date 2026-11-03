@@ -1,12 +1,16 @@
 """Run an experiment suite from configs/experiments.yaml and append every run to one JSONL file.
 
   python scripts/run_experiments.py --suite presentation1 [--only comparison|scaling]
+  python scripts/run_experiments.py --suite final_task1      # the same on dataset v2's realistic replay
+
+A suite may set `view` (models and data) and `replay`; realistic scaling splits each real device over `replicas`.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -22,6 +26,9 @@ def main() -> None:
     parser.add_argument("--only", choices=["comparison", "scaling"], default=None)
     args = parser.parse_args()
     suite = load_config("experiments")["suites"][args.suite]
+    replay = suite.get("replay", "random")
+    if "view" in suite:
+        os.environ["BLOCKIOT_VIEW"] = suite["view"]
     out_dir = resolve(load_config("base")["paths"]["results"]) / args.suite
     out_dir.mkdir(parents=True, exist_ok=True)
     runs_file = out_dir / "runs.jsonl"
@@ -29,18 +36,22 @@ def main() -> None:
     plan = []
     if args.only in (None, "comparison"):
         c = suite["comparison"]
-        plan += [dict(group="comparison", mode=m, seed=s, rows=c["rows"], devices=c["devices"], edges=c["edges"],
+        plan += [dict(group="comparison", mode=m, seed=s, rows=c["rows"], devices=c.get("devices"), edges=c["edges"],
                       fogs=c["fogs"]) for s in c["seeds"] for m in c["modes"]]
     if args.only in (None, "scaling"):
         c = suite["scaling"]
-        plan += [dict(group="scaling", mode=m, seed=c["seed"], rows=c["rows"], devices=d, edges=c["edges"],
-                      fogs=c["fogs"]) for d in c["devices"] for m in c["modes"]]
+        if replay == "realistic":
+            plan += [dict(group="scaling", mode=m, seed=c["seed"], rows=c["rows"], devices=None, replicas=k,
+                          edges=c["edges"], fogs=c["fogs"]) for k in c["replicas"] for m in c["modes"]]
+        else:
+            plan += [dict(group="scaling", mode=m, seed=c["seed"], rows=c["rows"], devices=d, edges=c["edges"],
+                          fogs=c["fogs"]) for d in c["devices"] for m in c["modes"]]
 
     for i, p in enumerate(plan, 1):
         print(f"[{i}/{len(plan)}] {p}", flush=True)
         result = run(experiment=f"{p['group']}_{p['mode']}", blockchain=None if p["mode"] == "baseline" else p["mode"],
                      n_rows=p["rows"], devices=p["devices"], edges=p["edges"], fogs=p["fogs"], seed=p["seed"],
-                     log=lambda *_: None)
+                     replay=replay, replicas=p.get("replicas", 1), log=lambda *_: None)
         result["group"], result["mode"] = p["group"], p["mode"]
         with runs_file.open("a") as f:
             f.write(json.dumps(result, default=str) + "\n")
