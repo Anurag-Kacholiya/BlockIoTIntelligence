@@ -1,0 +1,11 @@
+realistic_replay: streaming 200,000 events from 10 devices via 2 edges, 1 fogs (blockchain=batch)
+processed 200,000/200,000 events from 10 devices; replay span 1514.4s at speed 1.0; throughput 549 events/s; alerts 82,827
+ layer       task  accuracy  f1_macro
+device     binary    0.8324    0.8261
+  edge     binary    0.9433    0.9422
+   fog multiclass    0.9270    0.7816
+   fog     binary    0.9404    0.9391
+ cloud multiclass    0.9262    0.7707
+ cloud     binary    0.9405    0.9392
+cloud false alarms by device: {'dht11_temperature_humidity': 0.0033, 'g1006_flame': 0.0005, 'hcsr04_distance': 0.0007, 'ir_receiver': 0.0012, 'lm393_sound': 0.0005, 'modbus_tcp': 0.0342, 'ph4502c_ph': 0.0015, 'pulse_heart_rate': 0.0017, 'soil_moisture': 0.0016, 'water_level': 0.0006}
+full result: /Users/sivasai11/PG/1-3/RIS/PROJECT/BlockIoTIntelligence/experiments/results/realistic_replay-20261028T103013-7f7fce.json

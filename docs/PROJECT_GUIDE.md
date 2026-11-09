@@ -312,6 +312,115 @@ and cloud.
 5. **Full scale:** 200,000 events, baseline and batch.
 6. **Figures and tables** for the slides, generated automatically from the results.
 
+### Step 8 — Final task 1: real timestamps and real devices (Oct 2026)
+
+The mid-term had to simulate *which device* sent a message and *when*. Final task 1 replaces both with the
+real values from the 24 packet captures:
+
+1. **Packet index:** every packet's real time, session and addresses (21.1 million packets).
+2. **Features re-extracted with tshark** for every packet. This also fixes a fault in the publisher's CSVs: every
+   UDP row is shifted by one column, because multi-valued fields were joined with the CSV comma.
+3. **CSV rows matched to their packets** (17.6 million rows, 10 ambiguous) to know what the publisher selected.
+4. **Real devices:** 10 sensors from the dataset paper; attacks belong to the attacked segment.
+5. **Dataset v2:** 1.76 million rows, normal traffic from all 10 sensors; three splits (random, time-based,
+   leave-one-device-out).
+6. **Realistic replay:** each device sends its own messages with their real gaps.
+7. **Retrained and re-evaluated** every layer.
+8. **The other experiments re-run on the realistic replay** (finished 3 Nov 2026): tampering in transit, the 8
+   security attacks, the mode comparison and scaling to 500 devices.
+
+Details and results: [final/01_real_timestamps_device_identity.md §10](final/01_real_timestamps_device_identity.md#10-implementation-and-results-28-oct-2026)
+(step 8 in §10.10).
+
+### Step 9 — Final task 2: a 4-validator blockchain network (Nov 2026)
+
+Until now the blockchain was **one Anvil node** that mined every transaction instantly. Final task 2 replaces it
+with a private network of **4 Hyperledger Besu validators running QBFT consensus**:
+- each validator has its own key, database and ports;
+- one block is produced per second;
+- a block is final when 3 of the 4 validators agree.
+
+The layers use different nodes: device gateway → node 0, edges → nodes 1 and 2, fog → node 3, cloud → node 0.
+
+1. **Toolchain:** `scripts/setup_besu.py` installs a pinned Besu release, checking its SHA-256.
+2. **Network:** `src/common/qbft.py` starts a fresh 4-validator network for every run and checks at the end that
+   all 4 nodes hold the same chain.
+3. **Client** (`src/common/blockchain.py`):
+   - transactions are signed by the client;
+   - a read through any node waits until that node has every write already confirmed elsewhere;
+   - fog and cloud audit records are confirmed in the background, but each run still waits for all of them
+     before it ends.
+4. **Experiments** (dataset v2 realistic replay):
+   - the same workload on 1 node with instant blocks, 1 node with 1 block/s, and 4 validators;
+   - every write awaited;
+   - block periods of 1, 2 and 5 s;
+   - scaling to 500 devices;
+   - all 8 attacks.
+5. **Main results:**
+   - message latency 2.75 s at 1 block/s, set by block time, not consensus;
+   - security, accuracy and gas unchanged.
+
+Details and results: [final/02_multi_node_blockchain.md §10](final/02_multi_node_blockchain.md#10-implementation-and-results-3-nov-2026).
+
+### Step 10 — Add-on after task 2: fault tolerance (Nov 2026)
+
+Experiment F of the ADR: parts of the running system are switched off and back on. Before this add-on nothing
+handled a failure: a failed edge or fog lost its traffic, the cloud had no queue, and a dead blockchain node stopped
+the whole run.
+
+1. **Recovery mechanisms:**
+   - an edge or fog that fails hands its traffic to the next one;
+   - the fogs hold the cloud's input while it is down and forward it when it returns (store and forward);
+   - the blockchain client switches to another node when its node dies, and resends every transaction not yet
+     confirmed. This is the ADR's "retry + local queue + eventual commit", built for the first time.
+2. **A fault injector** (`src/common/faults.py`) switches off a device, an edge, a fog, the cloud, or crashes and
+   restarts validators while a run streams.
+3. **13 runs** on the 4-validator network:
+   - each fault from 30 to 60 s;
+   - edge, fog and cloud each with and without recovery;
+   - plus 1 and 2 of 4 validators down.
+4. **Main results:**
+   - **With recovery, no message is lost** in any scenario, and every prediction is unchanged.
+   - **Without recovery,** 19–26% of the run's messages are lost, including up to 1,386 attack messages.
+   - **With 1 of 4 validators down** the chain continues at 0.4 blocks/s.
+   - **With 2 of 4 down** it halts and resumes 64.8 s after the quorum returns. Nothing is lost, and every node ends
+     with the same chain.
+   - **Finding:** fog failover loses the fog's flood-detection state; in this run, all 108 flood alerts.
+
+Details and results: [final/02a_fault_tolerance.md §10](final/02a_fault_tolerance.md#10-implementation-and-results-3-nov-2026).
+
+### Step 11 — Final task 3: AI-driven blockchain (Nov 2026)
+
+The paper's *AI-driven blockchain* (RQ-11): AI that improves the blockchain itself, not only the reverse.
+- **The cost problem:** in Merkle batch mode every micro-batch ends with one root per device, ~149k gas whatever the
+  number of messages under it. With 500 devices most roots cover one or two messages, which is why gas per message
+  grew 6.2× in task 2.
+- **What the gateway does now:** it decides, per micro-batch and device, whether to commit the device's batch now or
+  keep it open for the device's next messages.
+
+1. **Commit scheduler** (`src/device/commit_policy.py`):
+   - each device's traffic history (17 features);
+   - five policies: fixed, a fixed interval, a fixed rule, the AI, and perfect foresight as the reference;
+   - a batch of *m* messages is held only if *m ≤ p × N*, with *p* the forecast and *N* an explicit price of
+     latency.
+2. **Traffic forecaster** (`src/cloud/train_forecaster.py`):
+   - a gradient-boosting model trained by the cloud on the time split's train windows;
+   - validation AUC 0.944, against 0.64 for persistence and 0.73 for a Poisson-rate estimate;
+   - registered and verified on-chain with the four layer models.
+3. **Experiments:**
+   - an offline sweep of every policy over the whole gas–latency trade-off (2,440 simulations, the same code as the
+     live runs);
+   - 43 live runs on the 4-validator network and on one node, 10–500 devices.
+4. **Main results at 500 devices:**
+   - **gas:** the AI saves 22.5% of the gas per message for +0.82 s of latency; the rule saves 26.8% for +1.18 s;
+   - **at equal gas,** the AI needs less added delay than the rule in 59 of 60 offline comparisons;
+   - **attacks:** never holding attack-flagged batches keeps attack traffic at the fixed design's latency, and
+     still saves 15%;
+   - **unchanged:** predictions, alerts and security;
+   - **scaling, partly fixed:** gas growth from 10 to 500 devices falls from 6.2× to 4.8×.
+
+Details and results: [final/03_ai_driven_blockchain.md §10](final/03_ai_driven_blockchain.md#10-implementation-and-results-4-nov-2026).
+
 ---
 
 ## 6. Folder-by-folder and file-by-file guide
@@ -367,10 +476,10 @@ and every result can record exactly which settings produced it.
 | File | Controls |
 |---|---|
 | `base.yaml` | Global settings: random seed (42), number of devices/edges/fogs/clouds, where models and results go |
-| `datasets.yaml` | Which dataset files to use, the 15 leaky columns to drop and *why*, which columns are categories, split ratios (70/15/15) |
+| `datasets.yaml` | Which dataset files to use, the 15 leaky columns to drop and *why*, which columns are categories, split ratios (70/15/15); dataset v2 settings (session gap, CSV time zone, rows per class and device, fog flood threshold for the realistic replay) |
 | `models.yaml` | Which AI model each layer uses and its settings, and the training sample size (300,000 rows) |
-| `blockchain.yaml` | Blockchain network settings (local address, chain ID) |
-| `experiments.yaml` | Experiment plans, including the `presentation1` suite (modes, seeds, sizes, device counts) |
+| `blockchain.yaml` | Blockchain network settings (local address, chain ID, dev accounts); what the client does when a node stops answering (`retry`: failover rounds, pause, receipt timeout); the multi-node QBFT network of final task 2 (Besu version and checksum, 4 validators, block period, gas limit) |
+| `experiments.yaml` | Experiment plans: the `presentation1` suite (modes, seeds, sizes, device counts), `final_task1` (the same on dataset v2's realistic replay), `final_task2` (single node vs QBFT network) and `final_faults` (the fault scenarios of the fault-tolerance add-on) |
 
 ### 6.4 `src/common/` — shared tools
 
@@ -382,7 +491,9 @@ These are used by every layer. Per the ADR, this folder must not contain any lay
 | `schemas.py` | Defines the standard data formats: a telemetry event, an alert, model metadata, a blockchain receipt… | All layers agree on what a message looks like; malformed messages are rejected automatically |
 | `crypto.py` | Canonical JSON, SHA-256 fingerprints, Ed25519 device keys and signatures | The basis of integrity and identity. "Canonical" means the same data always produces the same fingerprint (key order and number formatting are fixed) |
 | `merkle.py` | Builds a Merkle tree over many fingerprints and checks inclusion proofs | Enables batch mode: one blockchain transaction covers a whole group of events |
-| `blockchain.py` | Starts and stops a private Anvil chain; deploys the contract; sends transactions; records the time and gas of every transaction | The single place that talks to the blockchain, so all measurements are collected consistently |
+| `blockchain.py` | Starts and stops a private Anvil chain; deploys the contract; sends transactions (signed by the node, or locally with `LocalSigner`); records the time and gas of every transaction; one `Chain` per node with read-your-writes across nodes; optional background confirmation of audit writes; failover to another node with every unconfirmed transaction resent (fault-tolerance add-on) | The single place that talks to the blockchain, so all measurements are collected consistently |
+| `qbft.py` | Builds, starts, checks and stops a private network of 4 Besu validators with QBFT consensus (final task 2); crashes and restarts single validators (fault-tolerance add-on) | A real multi-node blockchain: blocks need 3 of 4 validators |
+| `faults.py` | Fault schedule and injector: takes a device, edge, fog, the cloud or a validator down and back up while a run streams, logging every action (fault-tolerance add-on) | Experiment F: what each failure costs and how the system recovers |
 | `metrics.py` | Times each layer and measures CPU and memory | Produces the latency and resource numbers |
 | `storage.py` | Saves data as Parquet files, each with a "manifest" (fingerprint, row count, git commit); refuses to load a file whose fingerprint changed | Off-chain storage with proof the data wasn't altered |
 | `logging.py` | Structured (JSON) log messages | Makes logs machine-readable |
@@ -392,9 +503,15 @@ These are used by every layer. Per the ADR, this folder must not contain any lay
 | File | What it does |
 |---|---|
 | `ingestion/edge_iiotset.py` | Loads the dataset CSV exactly as-is (everything as text, nothing silently converted) and attaches provenance: source file, row number, file fingerprint |
+| `ingestion/pcap_index.py` | Reads the 24 packet captures: every packet's real time, addresses, ports, sessions (final task 1) |
+| `ingestion/tshark_extract.py` | Re-extracts the 61 publisher features of every packet with Wireshark's tshark (final task 1) |
 | `validation/schema.py` | Checks the 63 expected columns and the 15 valid classes, and that the two labels agree with each other. Stops with an error if not |
 | `preparation/clean.py` | Removes leaky and constant columns, normalizes categories (e.g. "0" and "0.0" both mean "absent"), removes duplicates, counts rows whose features are identical but labels differ. Records a reason for every removal |
-| `preparation/splits.py` | Splits into train/validation/test with the same class proportions; reports any feature patterns that appear in both train and test |
+| `preparation/splits.py` | Splits into train/validation/test with the same class proportions; reports any feature patterns that appear in both train and test. Dataset v2: time-based split (per-session cut points) and leave-one-device-out |
+| `preparation/raw_normalize.py` | Decodes tshark's values into the publisher's encoding (hex, True/False) and detects shifted rows (final task 1) |
+| `preparation/timestamps.py` | Matches publisher CSV rows to their packets (time of day in UTC+1 plus addresses) (final task 1) |
+| `preparation/devices.py` | Maps each capture to its real device (`data/metadata/device_map.yaml`) (final task 1) |
+| `preparation/realistic.py` | Dataset v2 helpers: capture list, row ids, per-capture event tables, equal replay share per capture (final task 1); replay-like timing streams from the train, validation or test window (final task 3) |
 | `preparation/feature_groups.py` | Decides which columns each layer sees (device: 13 cheap header fields; edge, fog, cloud: all 42) |
 
 ### 6.6 The four layers: `src/device/`, `src/edge/`, `src/fog/`, `src/cloud/`
@@ -411,7 +528,8 @@ experiment, so the **only** difference between the two runs is the blockchain.
 | `simulator.py` | Turns prepared dataset rows into a live stream of events from N logical devices, assigns each event an ID, a sequence number and a replay timestamp. (The dataset has no usable device IDs or timestamps; see section 8.) |
 | `collector.py` | Gives each device a deterministic key pair; "seals" an event (computes its fingerprint and signs it) |
 | `service.py` | Runs the device's tiny AI model (decision tree, attack vs normal) on each event |
-| `blockchain_client.py` | Seals every event and records its fingerprint on-chain: one transaction per event, or one Merkle root per device per batch |
+| `blockchain_client.py` | Seals every event and records its fingerprint on-chain: one transaction per event, or one Merkle root per device per batch. With a commit scheduler (task 3) it may keep a device's batch open for later micro-batches |
+| `commit_policy.py` | Final task 3 (AI-driven blockchain): decides, per micro-batch and device, whether the gateway commits the device's Merkle batch now or holds it for the device's next messages. Keeps each device's traffic history (17 features); five policies: fixed, interval, rule, the AI forecast, perfect foresight; an offline simulator with the same code |
 
 #### `src/edge/` — Edge Intelligence
 
@@ -435,7 +553,8 @@ experiment, so the **only** difference between the two runs is the blockchain.
 | File | What it does |
 |---|---|
 | `train.py` | Trains the device, edge and fog models and three cloud candidates (Random Forest, Gradient Boosting, MLP), scores them on validation data and deploys the best |
-| `model_registry.py` | Saves each model with its fingerprint, the training-data fingerprint, its settings and scores; refuses to load a model whose file no longer matches its fingerprint |
+| `train_forecaster.py` | Final task 3: trains the gateway's traffic forecaster (gradient boosting) on streams cut from the time split's train windows; scores it on the validation windows against two non-learned references |
+| `model_registry.py` | Saves each model with its fingerprint, the training-data fingerprint, its settings and scores; refuses to load a model whose file no longer matches its fingerprint. A model of another kind (the forecaster) gets its own folder |
 | `evaluate.py` | Computes accuracy, precision, recall, F1, ROC-AUC and confusion matrices |
 | `service.py` | Receives fog output, runs the cloud model, produces per-layer accuracy reports |
 | `blockchain_client.py` | Registers every model's fingerprint on-chain; verifies a model against the *on-chain* fingerprint (not the local file, which an attacker could also edit); records inference results |
@@ -446,7 +565,9 @@ Creates the layers, connects them (device → the right edge → fog → cloud),
 blockchain and plugs in the blockchain clients, streams the data, times every layer, and returns one
 complete result (accuracy, latency, CPU, memory, gas, rejections, model IDs, reproducibility info).
 It also accepts an **interceptor**, a hook between device and edge where experiments can play the
-attacker.
+attacker, a **fault schedule** (fault-tolerance add-on) and a **commit policy** (final task 3: when the gateway
+commits each device's Merkle batch; the forecaster is then registered and verified on-chain with the four layer
+models).
 
 ### 6.7 `blockchain/` — the smart contract
 
@@ -470,9 +591,22 @@ attacker.
 | `run_integrity_accuracy.py` | "Attacker disguises attacks" experiment | ~3 min |
 | `run_security.py` | Eight-attack security experiment | ~5 min |
 | `run_presentation1.sh` | Runs **all** presentation experiments in order | ~50 min |
-| `make_figures.py` | Draws the presentation figures and tables from results | seconds |
+| `make_figures.py` | Draws the figures and tables from results: `--set presentation1` (default), `final_task1`, `final_task2`, `final_faults`, `final_task3` | seconds |
+| `validate_tshark_extraction.py` | Final task 1: compares tshark's features with the publisher's CSVs row by row | ~10 min |
+| `build_realistic_events.py` | Final task 1: 24 packet captures → per-packet event tables with real time, session and device | ~15 min |
+| `build_realistic_dataset.py` | Final task 1: dataset v2 and its random and time splits | ~5 min |
+| `run_realistic_eval.py` | Final task 1: test-split metrics, leave-one-device-out, realistic replay runs | minutes to hours (LODO) |
+| `run_final_task1.sh` | Final task 1: reproduces everything (`--step8-only`: the experiments re-run on the replay, ~30 min) | hours |
+| `setup_besu.py` | Final task 2: installs the pinned, checksum-verified Besu release into `tools/besu` | ~1 min |
+| `run_multinode.py` | Final task 2: `check` (4-validator network, cross-node read), `run` (experiment groups T2.1–T2.4) | ~1.5 h for `run` |
+| `run_final_task2.sh` | Final task 2: reproduces every result and figure | ~1 h 45 min |
+| `run_faults.py` | Fault-tolerance add-on: the fault scenarios of `final_faults` (`--scenarios`, `--resume`) | ~40 min |
+| `run_final_faults.sh` | Fault-tolerance add-on: reproduces every result and figure | ~40 min |
+| `train_forecaster.py` | Final task 3: the cloud trains and registers the gateway's traffic forecaster | ~25 s |
+| `run_ai_blockchain.py` | Final task 3: `simulate` (every commit policy over the whole gas–latency trade-off, offline), `run` (live groups T3.1–T3.5; `--groups`, `--resume`) | ~1 min / ~50 min |
+| `run_final_task3.sh` | Final task 3: reproduces every result and figure | ~1 h |
 
-### 6.9 `tests/` — automated checks (34 tests, all passing)
+### 6.9 `tests/` — automated checks (119 tests, all passing)
 
 Run with `make test` (or `.venv/bin/python -m pytest`). They prove the code does what it claims.
 
@@ -483,9 +617,21 @@ Run with `make test` (or `.venv/bin/python -m pytest`). They prove the code does
 | `unit/test_edge_ingest.py` | Duplicates and replays rejected; a rejected forged event can't lock out a real device |
 | `unit/test_merkle.py` | Every event proves into its batch root; changed events don't |
 | `unit/test_traffic_analysis.py` | Window counts and flood detection are correct |
+| `unit/test_pcap_index.py` | Packet capture reading: addresses, ports, ARP, corrupt timestamps, out-of-order packets, sessions |
+| `unit/test_raw_normalize.py` | Hex and True/False decoding; shifted (misaligned) rows are detected |
+| `unit/test_timestamps.py` | CSV row ↔ packet matching: UTC+1, IP filter, order resolution, ambiguity never guessed |
+| `unit/test_devices.py` | Every capture has a device; attacks map to the attacked segment; replay budget per capture |
+| `unit/test_splits.py` | Time split is ordered and survives sampling; held-out device never in training; mid-term split reproduced exactly |
+| `unit/test_simulator.py` | Realistic replay keeps real gaps and devices, hides dates; random replay unchanged |
+| `unit/test_model_registry_paths.py` | Dataset v2 models never replace the mid-term models |
+| `unit/test_multinode_client.py` | QBFT genesis; local signing with per-sender nonces; reads wait for confirmed writes on other nodes (and re-check the node after a failover); roles spread over nodes |
+| `unit/test_faults.py` | Traffic routing on failure; fault schedule and repair at the end; failover to the next live node; unconfirmed transactions resent in order; node monitoring across restarts |
+| `unit/test_commit_policy.py` | Task 3: the gateway's traffic features checked by hand; every commit policy's decision; the latency budget never exceeded and no message lost; the last micro-batch commits everything; training labels |
 | `integration/test_baseline_pipeline.py` | Whole baseline: every event reaches the cloud, all layers predict, accuracy beats guessing |
-| `integration/test_blockchain_pipeline.py` | Whole blockchain run (both modes): every event committed and verified, all 4 models verified on-chain, tampered events rejected |
-| `security/test_model_integrity.py` | A modified model file is refused |
+| `integration/test_blockchain_pipeline.py` | Whole blockchain run (both modes): every event committed and verified, all 4 models verified on-chain, tampered events rejected; locally signed with background audit writes; the same on a 4-validator QBFT network (all nodes agree) |
+| `integration/test_fault_tolerance.py` | An edge, fog or the cloud down: nothing lost and every prediction unchanged with recovery, its traffic lost without; a device that is off; another edge verifies a failed edge's devices through the ledger; a validator crash on QBFT loses nothing and the node rejoins |
+| `integration/test_ai_blockchain.py` | Task 3: the fixed policy equals the original code path; the AI commits fewer roots, changes no prediction and decides exactly as the offline simulation; the forecaster is verified on-chain; a tampered message from a held batch is rejected; the same on QBFT |
+| `security/test_model_integrity.py` | A modified model file is refused; the forecaster (a model kind of its own) has its own folder and is checked the same way |
 | `performance/` | Empty for now (planned) |
 
 ### 6.10 `data/` — the dataset
@@ -509,6 +655,9 @@ One folder per layer (`device/`, `edge/`, `fog/`, `cloud/`). For each model:
   list, settings, validation scores and training time.
 - `current.json` says which model the layer currently uses.
 
+Dataset v2's models are in `models/real_time/<layer>/`. The gateway's traffic forecaster (final task 3) is a
+device-layer model of its own kind, in `models/real_time/device_forecaster/`.
+
 ### 6.12 `experiments/` — outputs and lineage
 
 | Path | Contents |
@@ -518,23 +667,39 @@ One folder per layer (`device/`, `edge/`, `fog/`, `cloud/`). For each model:
 | `results/presentation1/runs.jsonl` | All 24 comparison and scaling runs, one per line |
 | `results/exp_integrity_accuracy.*` | Integrity-under-attack results |
 | `results/exp_security.csv`, `security-*.json` | Security experiment results |
+| `manifests/real_*_preparation.json`, `realistic_dataset.json`, `tshark_validation.json` | Final task 1: dataset v2 lineage and the tshark check |
+| `results/realistic/` | Final task 1: test-split metrics, leave-one-device-out, integrity and security on the realistic replay |
+| `results/realistic_replay-*.json` | Final task 1: 200,000-message realistic replay runs |
+| `results/final_task1/runs.jsonl` | Final task 1: comparison and scaling on the realistic replay |
+| `results/final_task2/` | Final task 2: every single-node and QBFT run (`runs.jsonl`) and security on QBFT |
+| `results/final_faults/` | Fault-tolerance add-on: every fault run (`runs.jsonl`) and the messages each delivered, with every layer's prediction (`rows/*.parquet`) |
+| `results/final_task3/` | Final task 3: the offline sweep (`simulation.csv`), the forecaster on the test window (`forecast_quality.csv`), every live run (`runs.jsonl`) and its delivered messages (`rows/*.parquet`) |
 | `results/exp_accuracy_baseline.csv`, `exp_latency_baseline.csv` | Baseline summary tables |
-| `configs/`, `logs/`, `reports/` | Empty placeholders for later phases |
+| `logs/` | Console logs of the final-phase runs (`final_task1_step8.log`, `final_task2.log`, `final_faults.log`, `final_task3.log`, …) |
+| `configs/`, `reports/` | Empty placeholders for later phases |
 
 ### 6.13 `docs/` — documentation
 
 | Path | Contents |
 |---|---|
 | `PROJECT_GUIDE.md` | This guide |
+| `DATA_USAGE.md` | Exactly which data and how much was used at the mid-term, and what the final will use |
 | `presentation1/README.md` | Results write-up for the first presentation, including the paper comparison and the 6-week plan |
 | `presentation1/figures/` | 9 slide-ready charts |
 | `presentation1/tables/` | The numbers behind each chart, as CSV |
+| `final/01_real_timestamps_device_identity.md` | Final task 1: plan, implementation, results, audit |
+| `final/02_multi_node_blockchain.md` | Final task 2: plan, implementation, results |
+| `final/02a_fault_tolerance.md` | Add-on after task 2, fault tolerance (Experiment F): plan, implementation, results |
+| `final/03_ai_driven_blockchain.md` | Final task 3, AI-driven blockchain (RQ-11): plan, implementation, results |
+| `final/task1/`, `final/task2/`, `final/faults/`, `final/task3/` | Figures and tables of each final task and of the fault-tolerance add-on |
 
 ### 6.14 Folders not in git
 
-- `tools/`: the private blockchain node and compiler (`foundry/anvil`, `foundry/forge`, `solc/solc-0.8.24`).
-- `.venv/`: a Python environment with the blockchain library (web3). It reuses the main Python's other
-  libraries.
+- `tools/`: the private blockchain node and compiler (`foundry/anvil`, `foundry/forge`, `solc/solc-0.8.24`), and
+  Hyperledger Besu for the multi-node network (`besu/`, installed by `scripts/setup_besu.py`; `downloads/` caches
+  the verified release).
+- `.venv/`: a Python environment with the blockchain libraries (web3; coincurve for fast transaction signing).
+  It reuses the main Python's other libraries.
 - `dashboard/`: empty; a live dashboard is planned for the final presentation.
 
 ---
@@ -554,6 +719,13 @@ One folder per layer (`device/`, `edge/`, `fog/`, `cloud/`). For each model:
 | **Everything seeded, fingerprinted and configured in files** | Anyone can reproduce every number exactly (ADR §19) |
 | **Toolchain installed inside the project** | Nothing on the computer is changed outside this folder |
 | **Local private chain (Anvil)** | Free, fast, repeatable. Public Ethereum costs money and gives unrepeatable timings (ADR rejected it) |
+| **A private 4-validator QBFT network (Besu) for final task 2** | Real consensus and block time, still free and repeatable. QBFT tolerates 1 faulty validator out of 4. Besu runs the same contract bytecode, so gas is directly comparable |
+| **Audit records confirmed in the background (task 2)** | No layer reads them during a run, so waiting for them only adds two blocks per micro-batch. The run still ends only after every one is confirmed |
+| **A read waits until its node has every confirmed write (task 2)** | With layers on different nodes, an edge could otherwise read through a node that has not yet imported a device's commitment, and reject a genuine message |
+| **The AI of task 3 decides only *when* roots are committed** | It never sees or changes message content, labels or any prediction, so accuracy and security cannot change; only gas and latency move |
+| **One price of latency for every policy (task 3)** | A batch of *m* messages is held only if *m ≤ p × N*. The rule (p = 1), the AI (forecast p) and perfect foresight (p = 0 or 1) are compared at the same N and over the whole range of N, so the AI's share of the gain is explicit |
+| **The forecaster learns from the train windows only, with the gateway's own feature code (task 3)** | No test traffic in training, and training and serving cannot drift apart. The test-window stream is rebuilt exactly, so offline and live decisions are identical |
+| **The forecaster is registered and verified on-chain like the layer models (task 3)** | The blockchain also protects the AI that drives it: a swapped forecaster is refused |
 
 ---
 
@@ -582,6 +754,19 @@ One folder per layer (`device/`, `edge/`, `fog/`, `cloud/`). For each model:
    disclosed as a limitation.
 9. **Slow network.** The dataset and toolchain downloads were ~50 KB/s single-stream. *Handled:*
    downloads split into parallel pieces.
+10. **Besu refused bursts of transactions (task 2).** Per-event mode sends up to 256 transactions from one account
+    per micro-batch. By default Besu refuses a transaction more than 200 nonces ahead of the sender's last
+    confirmed one. *Handled:* the pool limit is raised to 10,000 (`configs/blockchain.yaml`).
+11. **web3.py rejected QBFT block headers (task 2).** QBFT stores the validators and their signatures in a
+    327-byte header field that web3.py rejects by default. *Handled:* the consensus check reads blocks through
+    web3's proof-of-authority middleware; transactions were never affected.
+12. **The first forecaster was weakest where it mattered (task 3).** Its AUC was 0.97 overall but 0.73–0.80 on
+    single-message batches, the cases that decide whether a hold pays off. *Handled:* two features were added (when
+    the device's next message is due; the trend in stream pace), chosen on the validation windows only. The change
+    came after a test-window result and is disclosed in `final/03_ai_driven_blockchain.md` §10.2.
+13. **"Perfect foresight" turned out not to bound every policy (task 3).** It is the rule's decision with the
+    future known; the AI's continuous threshold reaches points between the rule's steps. *Handled:* policies are
+    compared at equal gas on each one's lower convex envelope, not point by point.
 
 ---
 
@@ -605,7 +790,39 @@ One folder per layer (`device/`, `edge/`, `fog/`, `cloud/`). For each model:
   | Per-event | 27.4 ms | 37 events/s | ~155,900 |
 
   This agrees with the paper: blockchain adds latency, mostly at the device and edge.
-- **Scaling:** batch mode loses its advantage with many devices (batches become tiny). The fix is planned.
+- **Scaling:** batch mode loses its advantage with many devices (batches become tiny). Final task 3 addresses it
+  with AI-scheduled commits (below).
+
+**Final phase results** (dataset v2; details in the task documents):
+- **Final task 1, real timestamps and devices:** [final/01 §10](final/01_real_timestamps_device_identity.md#10-implementation-and-results-28-oct-2026),
+  with every experiment re-run on the realistic replay in §10.10.
+- **Final task 2, 4 QBFT validators at one block per second:** [final/02 §10](final/02_multi_node_blockchain.md#10-implementation-and-results-3-nov-2026).
+
+  | Chain (Merkle batch mode, 10,000 messages) | Message latency | Throughput |
+  |---|---:|---:|
+  | 1 node, instant blocks | 0.10 s | 2,382 msg/s |
+  | 1 node, 1 block/s | 2.75 s | 90 msg/s |
+  | 4 validators (QBFT), 1 block/s | 2.75 s | 90 msg/s |
+
+  - **Block time, not consensus, sets the latency:** consensus adds ~34 ms per confirmation.
+  - **Latency is about 2.75 block periods** (1, 2 and 5 s measured).
+  - **Security unchanged:** 8 of 8 attacks blocked, no genuine message rejected.
+  - **Accuracy and gas identical** to the single node.
+  - **Scaling to 500 devices:** throughput falls 24% on QBFT (15× on the instant-block node), but gas per message
+    grows 6.2×.
+- **Fault-tolerance add-on (Experiment F):** [final/02a §10](final/02a_fault_tolerance.md#10-implementation-and-results-3-nov-2026).
+  With failover and store and forward no message is lost when an edge, fog, the cloud or a validator fails; without
+  them a 30 s outage loses 19–26% of the messages.
+- **Final task 3, AI-driven blockchain:** [final/03 §10](final/03_ai_driven_blockchain.md#10-implementation-and-results-4-nov-2026).
+
+  | 500 devices, 4 QBFT validators | Gas per message | Message latency (3 seeds) |
+  |---|---:|---:|
+  | Fixed: one root per device per micro-batch | 96.3k | 3.52 s |
+  | Rule: hold every small batch one micro-batch | 70.4k (−26.8%) | 4.71 s |
+  | **AI: hold when the forecast says it pays** | **74.6k (−22.5%)** | **4.34 s** |
+
+  - **At equal gas,** the AI adds less delay than the rule in 59 of 60 offline comparisons.
+  - **Predictions, alerts and security are unchanged.**
 
 ---
 
@@ -626,6 +843,12 @@ python scripts/run_baseline.py                                  # without blockc
 .venv/bin/python scripts/run_blockchain.py --mode batch         # with blockchain
 .venv/bin/python scripts/run_security.py                        # attack experiment
 scripts/run_presentation1.sh && .venv/bin/python scripts/make_figures.py   # all results + charts
+
+# final task 1 (dataset v2) and final task 2 (4-validator QBFT network)
+scripts/run_final_task1.sh                                       # or --step8-only
+.venv/bin/python scripts/setup_besu.py && scripts/run_final_task2.sh
+scripts/run_final_faults.sh                                      # fault-tolerance add-on (Experiment F)
+scripts/run_final_task3.sh                                       # final task 3: AI-driven blockchain (RQ-11)
 
 # check
 make test
@@ -649,13 +872,26 @@ The pending work is listed after them.
 | Yardstick | Completed | Partly done | Not started | Completion |
 |---|---:|---:|---:|---:|
 | Implementation phases 0–8 (§11.2) | 7 | 2 | 0 | **7 of 9 fully done** |
-| Acceptance checklist, 31 items (§11.3) | 28 | 2 | 1 | **90% fully met** (28/31) |
-| Experiments A–F (§11.4) | 4 | 1 | 1 | **4 of 6 fully done** |
+| Acceptance checklist, 31 items (§11.3) | 29 | 2 | 0 | **94% fully met** (29/31) |
+| Experiments A–F (§11.4) | 5 | 1 | 0 | **5 of 6 fully done** |
 | Planned files (§11.5) | 54 | 26 merged elsewhere | 21 | **80 of 101 covered** (79%) |
-| Paper requirements RQ-01 … RQ-17 (§14.1) | 11 | 5 | 1 | **11 of 17 fully met** |
-| Automated tests | 34 passing | — | — | 100% passing |
+| Paper requirements RQ-01 … RQ-17 (§14.1) | 12 | 5 | 0 | **12 of 17 fully met** |
+| Automated tests | 119 passing | — | — | 100% passing |
 
-**Overall estimate: about 65% of the total project effort is complete.** This is a judgement, not a count.
+**Update, 4 Nov 2026:** the three final tasks and the fault-tolerance add-on (Experiment F) are complete.
+- Tasks 1 and 2 remove three of the realism gaps named below:
+  - simulated timestamps;
+  - simulated device identity;
+  - a single blockchain node without consensus.
+- Task 3 meets the last unmet paper requirement, RQ-11 (AI-driven blockchain).
+
+Still open:
+- the time-window features add-on;
+- real network transport and containers;
+- the dashboard and the final report.
+
+**Overall estimate at the first presentation: about 65% of the total project effort was complete.** This is a
+judgement, not a count; the paragraph below explains it as written then.
 The acceptance checklist is 90% met, but it measures whether each capability *exists*. The remaining work
 makes the system *realistic*: real timestamps, real network transport, a multi-node blockchain,
 fault-tolerance testing, a dashboard and the final report. Those are the heavier tasks, so the overall
@@ -665,15 +901,15 @@ figure is lower than the checklist figure. Everything needed for the **first pre
 
 | Phase | What it means | Status | Evidence |
 |---|---|---|---|
-| 0 | Repository, configuration, tests | ✅ Done | `configs/`, `src/common/`, 34 tests, lint clean |
+| 0 | Repository, configuration, tests | ✅ Done | `configs/`, `src/common/`, 119 tests, lint clean |
 | 1 | Baseline four-layer pipeline, no blockchain | ✅ Done | `scripts/run_baseline.py`; 200k events at ~12,000 events/s |
 | 2 | Private blockchain + smart contract | ✅ Done | `blockchain/contracts/IoTRegistry.sol`, `src/common/blockchain.py` |
 | 3 | Device intelligence + commitments | ✅ Done | `src/device/` (sign + commit, per-event and Merkle batch) |
 | 4 | Edge verification + provenance | ✅ Done | `src/edge/` (identity, signature, hash, replay checks) |
 | 5 | Fog attack detection + audit | ✅ Done | `src/fog/` (15-class model, flood alerts, on-chain alert audit) |
 | 6 | Cloud training + model registry | ✅ Done | `src/cloud/` (3 candidates, on-chain model fingerprints) |
-| 7 | Full integration | 🟡 Partly | All layers work together, but **in one process**: no MQTT/REST transport, no Docker, one fog node in experiments |
-| 8 | Quantitative evaluation | 🟡 Partly | Accuracy, latency, CPU/memory, gas, security and scaling done; **fault tolerance and dashboard missing** |
+| 7 | Full integration | 🟡 Partly | All layers work together and, since final task 2, use a 4-validator blockchain network (separate processes). The layers themselves still run **in one process**: no MQTT/REST transport, no Docker, one fog node in experiments |
+| 8 | Quantitative evaluation | 🟡 Partly | Accuracy, latency (including block time and consensus, task 2), CPU/memory, gas, security, scaling and fault tolerance (Experiment F) done; **dashboard missing** |
 
 ### 11.3 Acceptance checklist (ADR §21)
 
@@ -706,14 +942,14 @@ The ADR says the project is complete only when all 31 items are met.
 | | Security test results reported | ✅ | 8 attack types |
 | | Scaling experiments reported | ✅ | 10–500 devices |
 | | Energy measured or transparent proxy | ✅ | CPU-time proxy, labelled as such |
-| Reproducibility | Configuration version controlled | ❌ | Config files exist, but **nothing is committed to git yet** |
+| Reproducibility | Configuration version controlled | ✅ | In git: `b3fb693` on `main` (first presentation), the final phase on branch `final-tasks-1-2` |
 | | Dataset hashes recorded | ✅ | `data/metadata/checksums.sha256` |
 | | Random seeds recorded | ✅ | in every result file |
 | | One-command experiment execution | ✅ | `scripts/run_presentation1.sh` |
 | | Results exported to CSV/JSON | ✅ | `experiments/results/` |
 | | Comparison with paper-reported values | ✅ | `docs/presentation1/README.md` §4 (preliminary) |
 
-**Totals:** 28 ✅, 2 🟡, 1 ❌.
+**Totals:** 29 ✅, 2 🟡, 0 ❌.
 
 ### 11.4 Experiment matrix (ADR §11.2)
 
@@ -723,8 +959,8 @@ The ADR says the project is complete only when all 31 items are met.
 | B — Latency | Per layer, with vs without | ✅ | per layer and end-to-end |
 | C — Resource overhead | CPU, memory, transactions, gas | ✅ | |
 | D — Security | tamper, replay, spoofing, duplicate, invalid signature | ✅ | 8 attack types (more than the ADR lists) |
-| E — Scalability | 10 → 1,000 devices; also edge/fog node counts | 🟡 | done for 10–500 devices; **1,000 devices and varying edge/fog node counts not run** |
-| F — Fault tolerance | switch off a device, edge, fog, cloud or chain node | ❌ | not started |
+| E — Scalability | 10 → 1,000 devices; also edge/fog node counts | 🟡 | done for 10–500 devices, on one node and on the 4-validator network (task 2), and with AI-scheduled commits (task 3); **1,000 devices and varying edge/fog node counts not run** |
+| F — Fault tolerance | switch off a device, edge, fog, cloud or chain node | ✅ | all five, plus 1 and 2 of 4 validators; event loss, recovery time, continuity (`final/02a_fault_tolerance.md`) |
 
 ### 11.5 Planned files (ADR §4.1 and §2A) vs what exists
 
@@ -762,7 +998,7 @@ lines. The job they describe is done; it just lives elsewhere. They count as cov
 | `scripts/run_pipeline.py` | 🔀 merged | `src/pipeline.py`, called by the run scripts |
 | `scripts/benchmark.py`, `collect_metrics.py` | 🔀 merged | `scripts/run_experiments.py` + `src/common/metrics.py` |
 | `scripts/reproduce_results.py` | 🔀 merged | `scripts/run_presentation1.sh` |
-| `tests/unit`, `integration`, `security` | ✅ | 34 tests |
+| `tests/unit`, `integration`, `security` | ✅ | 119 tests |
 | `tests/performance/` | ❌ | empty |
 | `dashboard/app.py`, `data_loader.py` | ❌ | not started |
 | `notebooks/01…05_*.ipynb` (5) | ❌ | not started |
@@ -789,25 +1025,34 @@ final-report items.
 
 | # | Item | Why it matters |
 |---|---|---|
-| 1 | Commit the work to git | Nothing is saved in version control yet (the only failed checklist item) |
+| 1 | ~~Commit the work to git~~ | Done: `b3fb693` on `main`; the final tasks on branch `final-tasks-1-2` (not yet merged into `main` or pushed) |
 | 2 | Fix the ADR's inconsistencies | Stale synthetic-sensor sections, undefined "Phase 9", leftover `citeturn` markers, wrong PDF names, broken links in `understanding_1.md` |
 | 3 | Add a `LICENSE` | Planned in the ADR |
 | 4 | Test a fresh-machine setup | Checklist item "runs from a fresh environment" |
 
-**B. Research realism, needed for the final presentation (the 6-week plan):**
+**B. Final phase: three main tasks and two add-ons, in the agreed order:**
 
-| Week | Item | Fixes |
-|---|---|---|
-| 1 | Extract features from the 24 PCAP captures (real timestamps); replay each real sensor as its own device; held-out-device test split | The two biggest data limitations (simulated time and identity) |
-| 2 | Edge rolling-window feature extraction (`feature_extraction.py`); fog windows on real time; retrain and compare | 🟡 "Edge feature extraction" checklist item |
-| 3 | MQTT device→edge and REST edge→fog→cloud; Docker Compose; multi-node chain with non-zero block time | Phase 7; latencies then include network and consensus delay |
-| 4 | Batch per edge gateway (fixes the scaling drop); batched alert audit; 1,000 devices; vary edge/fog counts; **fault-tolerance experiment F** | Experiments E and F |
-| 5 | External validation on a second IEEE DataPort dataset (X-IIoTID or ToN_IoT, if approved); Streamlit dashboard | Dashboard files; generalisation evidence |
-| 6 | Full reproduction run; final report; slides | Final deliverables |
+| Order | Item | Status | Fixes |
+|---|---|---|---|
+| Task 1 | Real timestamps and device identity: features from the 24 PCAP captures; each real sensor replayed as its own device; held-out-device test; every experiment re-run | ✅ Done (28 Oct; step 8 on 3 Nov 2026) | The two biggest data limitations (simulated time and identity) |
+| Add-on after task 1 | Time-window features: edge rolling windows (`feature_extraction.py`) and fog windows on real time; retrain and compare | Pending | 🟡 "Edge feature extraction" checklist item, RQ-05 |
+| Task 2 | Multi-node blockchain: 4 Besu validators, QBFT consensus, 1 block/s, layers on different nodes; latency including block time | ✅ Done (3 Nov 2026) | Single node without consensus; RQ-10 (ledger part) |
+| Add-on after task 2 | Fault tolerance: a device, edge, fog, the cloud, 1 and 2 of 4 validators fail and recover; failover, store and forward, client failover with resending | ✅ Done (3 Nov 2026) | Experiment F; ADR §14.2 "retry + local queue + eventual commit" |
+| Task 3 | AI-driven blockchain (RQ-11): the gateway's traffic forecaster decides when each device's Merkle batch is committed; compared with fixed batching, a fixed rule and perfect foresight | ✅ Done (4 Nov 2026) | RQ-11; the scaling drop (gas growth 10 → 500 devices: 6.2× → 4.8×) |
 
-**C. Paper requirement not yet met:** **RQ-11 "AI-driven blockchain"** (see §14). The paper expects AI to
-*improve the blockchain*, not only the reverse. Planned for week 4: a small model that forecasts each gateway's
-traffic and picks the Merkle batch size / commit interval, measured against fixed batching (gas, latency).
+**Still planned after the three tasks:**
+- MQTT and REST between layers, Docker Compose (Phase 7);
+- batched alert audit, 1,000 devices, other edge/fog counts (Experiment E);
+- a second IEEE DataPort dataset (X-IIoTID or ToN_IoT, if approved) and the Streamlit dashboard;
+- a full reproduction run, the final report and slides.
+
+**C. Paper requirements:** every requirement is now at least partly met. **RQ-11 "AI-driven blockchain"** was
+the last one not met. Final task 3 meets it:
+- a traffic forecaster at the device gateway decides when each device's Merkle root is committed;
+- gas and latency are measured on the 4-validator network;
+- it is compared with a fixed rule and with perfect foresight ([final/03](final/03_ai_driven_blockchain.md)).
+
+Five requirements remain partly met (§14.1): RQ-05, RQ-10, RQ-14, RQ-16 and RQ-17.
 
 **D. Optional, if time allows:** the five analysis notebooks, performance tests, and fog→cloud intermediate
 parameters (`intermediate_state.py`).
@@ -816,11 +1061,25 @@ parameters (`intermediate_state.py`).
 
 These are not bugs but boundaries that must be stated whenever the results are shown:
 
-- Everything runs on one laptop, in one process, with a local blockchain that mines instantly. Latencies
-  therefore exclude network and consensus delay.
-- Device identity and event timing are simulated, because the dataset's selected CSVs contain neither.
-- Per-event blockchain runs are limited to 10,000 events because the local chain node slows as blocks accumulate.
+- Everything runs on one laptop, and the four layers run in one process:
+  - the mid-term and task 1 results use a local blockchain that mines instantly, so their latencies exclude block
+    time and consensus;
+  - task 2 runs 4 QBFT validators with one block per second, so its latencies include both;
+  - none of the results include network transfer between layers or WAN delay between validators.
+- Device identity and event timing are simulated in the mid-term results, because the dataset's selected CSVs
+  contain neither. Dataset v2 (final task 1) uses the real values.
+- In the mid-term data, every DDoS_UDP and MITM row (and some Normal DNS rows) has shifted columns, a fault in the
+  publisher's CSVs; and the Normal class is ~99.8% one sensor. Dataset v2 corrects both.
+- Per-event blockchain runs are limited to 10,000 events because the instant-mining Anvil node slows as blocks
+  accumulate. On the QBFT network, per-event transactions share blocks (about 165 blocks instead of 20,117 for
+  10,000 messages), so that cause does not apply there. Longer per-event runs on QBFT were not tested.
 - Energy is a CPU-time proxy, not a power measurement.
+- Fault-tolerance results cover crashes and unreachable components (one seed, one 30 s fault). They do not cover
+  Byzantine validators, network partitions or slow links. Fog failover loses the fog's traffic windows, and in the
+  run with fog failover that lost every flood alert.
+- Task 3's live latencies come from an unpaced replay whose rounds are quantized by the 1 s blocks. Single runs
+  vary by up to 0.5 s, and a policy that holds everything in some rounds (the fixed interval) looks better live
+  than with real-time arrivals. The offline "rounds waited" is the deployment-independent measure.
 - The paper's numbers come from other studies on different tasks, so the comparison is a reference, not a like-for-like test.
 
 ---
@@ -849,11 +1108,11 @@ When all phases are complete (final presentation, ~6 weeks), the project deliver
 
 | Contribution | Meaning | Status |
 |---|---|---|
-| A — Architectural implementation | An executable four-layer architecture exists | ✅ done (single-process); 🔜 containers + real transport |
-| B — AI + blockchain convergence | AI and blockchain act on the *same* data, model and provenance pipeline, not as two separate demos | ✅ done: fingerprinted events feed the models; models are registered and verified on-chain |
-| C — Measured trade-offs | Benefits and costs both quantified | ✅ done for accuracy, latency, CPU, gas; 🔜 energy on hardware, consensus latency |
+| A — Architectural implementation | An executable four-layer architecture exists | ✅ done (layers in one process; blockchain on 4 validator processes since task 2); 🔜 containers + real transport |
+| B — AI + blockchain convergence | AI and blockchain act on the *same* data, model and provenance pipeline, not as two separate demos | ✅ done in both directions: fingerprinted events feed the models and models are verified on-chain; since task 3 an AI model also decides when the blockchain commits, and is itself verified on-chain |
+| C — Measured trade-offs | Benefits and costs both quantified | ✅ done for accuracy, latency, CPU, gas, block-time and consensus latency (task 2), and the gas–latency trade-off of AI-scheduled commits (task 3); 🔜 energy on hardware |
 | D — Security evidence | Tampering, replay, spoofing and model replacement produce measurable rejections | ✅ done (8 attack types) |
-| E — Reproducibility | Another student can regenerate everything | 🟡 scripts and fingerprints done; git commit and fresh-machine test pending |
+| E — Reproducibility | Another student can regenerate everything | 🟡 scripts, fingerprints and git history done; fresh-machine test pending |
 
 ### 12.3 The main findings so far (the "story" of the project)
 
@@ -869,15 +1128,36 @@ When all phases are complete (final presentation, ~6 weeks), the project deliver
    "blockchain adds latency" is confirmed and quantified per layer.
 5. **Design matters as much as the technology.** Batching per device stops helping with many devices; the
    fog alert audit becomes the largest cost once batching is used. These point to concrete design fixes.
+6. **On a real validator network, block time, not consensus, sets the latency** (final task 2). With 4 QBFT
+   validators and one block per second:
+   - a message takes 2.75 s, the same as on one node with the same block time;
+   - consensus adds ~34 ms per confirmation;
+   - every write the next layer must read costs about one block.
+
+   Merkle batching keeps its 10× gas saving, but its speed advantage shrinks from 62× to 1.4×.
+7. **The system survives failures it is designed for, and pays in time, not data** (fault-tolerance add-on).
+   - **With failover and store and forward,** no message is lost when an edge, a fog, the cloud or a validator
+     fails.
+   - **Without them,** a 30 s outage loses 19–26% of the run's messages, including attack traffic.
+   - **QBFT behaves exactly as Byzantine fault tolerance promises:** 1 of 4 validators down, the chain continues at
+     40% speed; 2 of 4, it halts without forking.
+   - **But recovering from a lost quorum took 64.8 s** after the quorum returned, twice the outage itself.
+8. **AI can make the blockchain cheaper, and it pays in time** (final task 3).
+   - A traffic forecaster at the gateway decides when to commit each device's Merkle root.
+   - At 500 devices it saves 22.5% of the gas per message for +0.82 s of latency.
+   - At equal gas it adds less delay than a fixed rule in 59 of 60 offline comparisons, and gets half of the gain
+     perfect foresight would give.
+   - **The structure limits it:** with one root per device per commit, gas still grows 4.8× from 10 to 500 devices
+     (6.2× before).
 
 ### 12.4 What the final results are expected to add
 
-- Latency **including** network transfer and blockchain consensus (block time > 0), which will be closer to
-  the paper's tens-of-milliseconds numbers than today's instant local mining.
-- Behaviour when a node fails (Experiment F) and at 1,000 devices.
-- Accuracy with **real device identity and real timing** from the PCAP captures, including a test on
-  devices the model never saw during training (generalisation).
-- An AI-driven blockchain optimisation (RQ-11) with its measured gas/latency saving.
+- ✅ *Done in task 2:* latency **including** block time and consensus. At 1 block/s it is 2.75 s per message,
+  far above the instant-mining numbers. 🔜 Network transfer between layers is still to be added.
+- ✅ *Done in the fault-tolerance add-on:* behaviour when a node fails (Experiment F). 🔜 1,000 devices.
+- ✅ *Done in task 1:* accuracy with **real device identity and real timing** from the PCAP captures,
+  including a test on devices the model never saw during training (generalisation).
+- ✅ *Done in task 3:* an AI-driven blockchain optimisation (RQ-11) with its measured gas/latency saving.
 - Results on a second dataset, if the instructor approves.
 
 ---
@@ -932,7 +1212,7 @@ The simple picture in section 3 shows *what* the layers do. This section shows *
 - Settings come from `configs/`, never from numbers written in the code.
 - Every layer loads its AI model through `cloud/model_registry.py`, which checks the model's fingerprint.
 
-### 13.3 Runtime architecture today (first presentation)
+### 13.3 Runtime architecture today (first presentation and final tasks 1–2)
 
 ```
  ┌──────────────────────────── one Python process ────────────────────────────┐
@@ -955,6 +1235,29 @@ The simple picture in section 3 shows *what* the layers do. This section shows *
 - The *interceptor* is a test hook where experiments play the attacker between device and edge.
 - The same process runs the baseline by simply not starting Anvil and not attaching the ledger.
 
+**Final task 2: the same process on a 4-validator network** (`run(chain_backend="qbft")`):
+
+```
+ ┌───────────────────────────── one Python process ─────────────────────────────┐
+ │ device gateway        edge-00          edge-01          fog-00      cloud    │
+ └──────┬──────────────────┬────────────────┬────────────────┬──────────┬───────┘
+        │ JSON-RPC         │                │                │          │
+        ▼                  ▼                ▼                ▼          │
+ ┌────────────┐     ┌────────────┐   ┌────────────┐   ┌────────────┐    │
+ │ Besu node 0│◄───►│ Besu node 1│◄─►│ Besu node 2│◄─►│ Besu node 3│    │
+ │ validator  │     │ validator  │   │ validator  │   │ validator  │    │
+ └────────────┘     └────────────┘   └────────────┘   └────────────┘    │
+        ▲            QBFT consensus, 1 block/s, final when 3 of 4 agree │
+        └────────────────────────────── cloud ──────────────────────────┘
+```
+
+- A fresh network for every run: keys and genesis come from Besu's generator, and the network is stopped and
+  deleted afterwards.
+- The client signs transactions itself with the same dev accounts as Anvil.
+- A read waits until its node has every write already confirmed (read-your-writes across nodes).
+- Fog and cloud audit records are confirmed in the background.
+- At the end of a run, every node must hold the same block at the highest common height.
+
 ### 13.4 Target runtime architecture (final presentation)
 
 ```
@@ -972,8 +1275,8 @@ The simple picture in section 3 shows *what* the layers do. This section shows *
 This is ADR Phase 7. It adds the costs today's numbers leave out:
 - network transfer between layers,
 - broker queuing,
-- block production time,
-- consensus between several blockchain nodes.
+- block production time (✅ measured in final task 2),
+- consensus between several blockchain nodes (✅ measured in final task 2).
 
 ### 13.5 On-chain design: the `IoTRegistry` smart contract
 
@@ -1051,7 +1354,9 @@ Threat actors are from ADR §14.1; the controls are what this project implements
 **Not covered (stated honestly):**
 - a device whose *private key* is stolen can still send validly signed but false data. This needs anomaly
   detection or key revocation (`revokeDevice` exists but is not exercised);
-- denial-of-service against the blockchain node itself;
+- denial-of-service against the blockchain node itself. A node that *crashes* is covered: the client fails over
+  to another node and resends what was unconfirmed (ADR §14.2, fault-tolerance add-on). A flood of requests was not
+  tested;
 - privacy of the data (nothing is encrypted; the paper's privacy measure is not reproduced).
 
 ### 13.8 AI architecture
@@ -1062,6 +1367,7 @@ Threat actors are from ADR §14.1; the controls are what this project implements
 | Edge | Random Forest (50 trees, depth ≤ 16) | attack vs normal | all 42 | Fast, accurate first filter |
 | Fog | Random Forest (100 trees, depth ≤ 20) | which of 15 classes | all 42 | Rapid attack identification (paper's fog role) |
 | Cloud | Best of Random Forest (200 trees), Gradient Boosting, small neural network | 15 classes | all 42 | Heavy analytics and model selection (paper's cloud role) |
+| Device gateway (final task 3) | Gradient boosting (300 trees), the traffic forecaster | will this device send again within r rounds? | 17 traffic-history features, no packet content | Drives a blockchain decision (when roots are committed): the paper's *AI-driven blockchain* |
 
 **Model lifecycle:**
 
@@ -1084,6 +1390,14 @@ Threat actors are from ADR §14.1; the controls are what this project implements
 Scaling and category encoding are learned from the training split only and saved *inside* each model, so
 every layer applies exactly the transformation its model was trained with.
 
+The forecaster follows the same lifecycle with its own data:
+- it is trained on replay-like streams cut from the time split's **train windows**, at 7 device counts;
+- it is scored on the validation windows;
+- it is saved with its provenance record in `models/real_time/device_forecaster/`;
+- it is registered and verified on-chain with the four layer models before a run uses it.
+
+It predicts one thread at a time: a round asks about at most a few hundred devices.
+
 ---
 
 ## 14. How the project maps to the paper
@@ -1101,8 +1415,8 @@ every layer applies exactly the transformation its model was trained with.
 | RQ-07 | Cloud: large-scale analytics | ✅ | `cloud/train.py`, model selection |
 | RQ-08 | Digital identity, hashing, authentication, verification | ✅ | `crypto.py`, device registry, edge checks |
 | RQ-09 | Smart contracts | ✅ | `IoTRegistry.sol` |
-| RQ-10 | Decentralised / distributed operation | 🟡 | ledger is shared state across all nodes, but one chain node today; multi-node in final |
-| RQ-11 | **AI-driven blockchain** (AI improves the blockchain) | ❌ | not yet: Merkle batching reduces cost but is not AI. Planned (see 11.6 C) |
+| RQ-10 | Decentralised / distributed operation | 🟡 | ledger decentralised since final task 2: 4 QBFT validators, layers on different nodes, all nodes verified to hold the same chain. The layers themselves still run in one process (MQTT/REST and containers pending) |
+| RQ-11 | **AI-driven blockchain** (AI improves the blockchain) | ✅ | final task 3: a traffic forecaster at the device gateway decides when Merkle roots are committed; −22.5% gas per message at 500 devices, measured on the QBFT network against a fixed rule and perfect foresight |
 | RQ-12 | **Blockchain-driven AI** (blockchain improves AI trust) | ✅ | model registry, data provenance, alert audit, integrity-under-attack experiment |
 | RQ-13 | Accuracy and latency measured | ✅ | §9 |
 | RQ-14 | Security and privacy measured | 🟡 | security measured (8 attacks); privacy not measured |
@@ -1110,7 +1424,7 @@ every layer applies exactly the transformation its model was trained with.
 | RQ-16 | Energy efficiency discussed | 🟡 | CPU-time proxy only |
 | RQ-17 | Limitations and research challenges analysed | 🟡 | limitations written (§11.7); the paper's Table 4 challenges not yet discussed |
 
-**Totals:** 11 ✅, 5 🟡, 1 ❌.
+**Totals:** 12 ✅, 5 🟡, 0 ❌.
 
 ### 14.2 The paper's two convergence ideas
 
@@ -1118,8 +1432,10 @@ every layer applies exactly the transformation its model was trained with.
   Every prediction can be traced back to a specific registered model and to device-committed input data.
   A swapped model is refused, and tampered input is rejected before it reaches the AI.
 - **AI-driven blockchain** (paper §4.1.1: AI addressing blockchain energy, scalability, efficiency):
-  *not yet implemented.* The plan is an AI model that predicts traffic load and chooses how many events
-  to batch per blockchain transaction, reducing gas and latency. We will measure that saving.
+  *implemented in final task 3.*
+  - A model predicts each device's traffic and decides when the gateway commits its Merkle root.
+  - Fewer, fuller roots cost less gas; the latency this adds is measured per message.
+  - The two directions meet: the forecaster is itself registered and verified on-chain.
 
 ### 14.3 The paper's figures and our equivalents
 
@@ -1162,7 +1478,17 @@ training or model selection.
 | Latency per layer | wall-clock time spent in that layer ÷ events processed (amortised over micro-batches of 256) |
 | End-to-end latency | time from a batch's creation to the cloud finishing it, per event |
 | Throughput | events fully processed ÷ total run time |
-| Transaction latency | time from submitting a blockchain transaction to receiving its receipt |
+| Message latency (final task 2) | time from a micro-batch entering the device layer to its cloud result; mean and 95th percentile over micro-batches, in seconds |
+| Transaction latency | time from submitting a blockchain transaction to receiving its receipt (on QBFT: once the block is final) |
+| Consensus check (final task 2) | every validator holds the same block hash at the highest common height at the end of a run |
+| Event loss (fault add-on) | messages the devices sent − messages delivered to the cloud − messages rejected at an edge; a device that is off sends nothing, and its readings are counted as unsent, not lost |
+| Pipeline continuity (fault add-on) | messages reaching the cloud over time; the longest interval without a delivery |
+| Recovery time (fault add-on) | from the repair until every message generated before it has reached the cloud (no fault: 1.9 s, the micro-batch in flight) |
+| Root (final task 3) | one Merkle batch commitment: `commitBatch` at the gateway plus the edge's `recordProcessing` for it, ~149k gas together |
+| Rounds waited (final task 3) | micro-batches a message waits at the gateway before its root is committed (offline, from the same scheduler code; independent of how fast rounds run) |
+| Message latency (final task 3) | per message, from its arrival at the device layer to its cloud result, including the rounds it waited |
+| Merkle gas per message (final task 3) | gas of all `commitBatch` and `recordProcessing` transactions ÷ messages |
+| Equal-gas comparison (final task 3) | the rounds waited each policy needs to cut the roots to a target share, read off its lower convex envelope over the whole sweep of the price of latency |
 | CPU per event | CPU time of the pipeline process (plus the blockchain node) ÷ events |
 | Gas per event | total gas of all data-path transactions ÷ events (setup excluded) |
 | Energy (proxy) | CPU time. Clearly labelled as a proxy, not measured watts |
@@ -1176,6 +1502,11 @@ training or model selection.
 | Integrity under attack | 10,000 events; 0/10/25/50% of attack events have their features replaced with a normal event's features in transit |
 | Security | 3,000 events per pass; each attack type injected at 5% in its own pass on a fresh chain; plus model-tamper and unauthorized-write tests |
 | Scaling | 5,000 events per point; 10, 50, 100, 250, 500 devices; all three modes |
+| Final task 2: chain comparison | 10,000 realistic-replay messages; 1 node instant / 1 node 1 block/s / 4 QBFT validators 1 block/s × per-event, batch × 3 seeds; same client in all |
+| Final task 2: other groups | every write awaited (QBFT, 1 seed); block period 2 s and 5 s (batch); scaling 10–500 devices on QBFT (5,000 messages); security on a fresh QBFT network per attack pass |
+| Fault tolerance (add-on) | 10,000 realistic-replay messages on 4 QBFT validators; 2 edges, 2 fogs; each fault 30–60 s: device, edge-00, fog-00, cloud (with and without recovery), validator 1, validators 2 and 3; batch mode, plus per-event for the validator faults; 1 seed |
+| Final task 3: offline sweep | fixed, interval (k = 2–4), rule, AI, Poisson-rate forecast, perfect foresight; hold limit 1–3 rounds × price of latency 1–32 messages, with and without protecting flagged traffic; 10–500 devices; 5,000 and 10,000 messages; 244 settings per stream |
+| Final task 3: live runs | task 2's scaling workload (5,000 messages, 2 edges, 1 fog) on 4 QBFT validators at 1 block/s; hold limit 1 round, price 4 messages: fixed, rule, AI, perfect foresight at 10–500 devices; at 500 devices 3 seeds, other settings, attacks never held; fixed and AI on one instant-block node |
 
 ---
 
@@ -1185,20 +1516,23 @@ training or model selection.
 |---|---|---|
 | Language | Python 3.13.9 (Anaconda) | all system code |
 | Data | pandas 2.3.3, NumPy 2.3.5, PyArrow 21.0.0 | data handling, Parquet files |
-| Machine learning | scikit-learn 1.7.2 | all models, preprocessing, metrics |
+| Machine learning | scikit-learn 1.7.2; threadpoolctl 3.5.0 | all models, preprocessing, metrics; the forecaster predicts on one thread |
 | Data validation | pydantic 2.12.4 | message formats |
 | Cryptography | cryptography 46.0.3 | Ed25519 signatures; SHA-256 via Python `hashlib` |
-| Blockchain node | Foundry Anvil 1.5.1 | private Ethereum chain |
+| Blockchain node | Foundry Anvil 1.5.1 | private Ethereum chain (single node) |
+| Blockchain network | Hyperledger Besu 26.10.0 on Java 25.0.1 | 4 QBFT validators (final task 2) |
+| Transaction signing | eth-account with coincurve 21.0.0 (native secp256k1) | client-side signing for Besu, 0.155 ms per transaction |
+| Packet features | tshark 4.6.9 | re-extracting features from the PCAP captures (final task 1) |
 | Smart contract | Solidity 0.8.24, compiled with Foundry forge 1.5.1 | `IoTRegistry.sol` |
 | Blockchain client | web3.py 7.16.0 (in `.venv/`) | talking to the chain from Python |
 | Resource measurement | psutil | CPU and memory |
 | Charts | matplotlib 3.10.6 | presentation figures |
-| Testing and style | pytest 8.4.2, ruff 0.12.0 | 34 tests, lint |
+| Testing and style | pytest 8.4.2, ruff 0.12.0 | 119 tests, lint |
 | Configuration | PyYAML 6.0.3 | `configs/*.yaml` |
 | Machine used | Apple M4, 10 cores, 16 GB RAM, macOS | all reported numbers |
 
 Planned additions for the final: Eclipse Mosquitto (MQTT), FastAPI (REST), Docker Compose, Streamlit
-(dashboard), tshark (PCAP feature extraction).
+(dashboard).
 
 ---
 
@@ -1226,11 +1560,38 @@ node the same trusted list of device keys. It also adds things signatures can't:
 
 **Why a local blockchain and not real Ethereum?**
 Real Ethereum costs money and gives unrepeatable timings. The ADR rejected it; a private chain is standard
-for research prototypes. A multi-node chain is planned for the final.
+for research prototypes. Since final task 2 the private chain is a real network: 4 Besu validators running QBFT
+consensus, with the layers writing and reading through different nodes.
+
+**Is your blockchain really decentralised?**
+Since final task 2, yes for the ledger:
+- 4 validators each hold the full chain;
+- a block is final only when 3 of the 4 agree;
+- every run checks that all 4 nodes end with the same chain;
+- a replay is caught even when the original was recorded through a different node.
+
+Limits: the validators run on one machine (no WAN delay), and the four AI layers still run in one process.
 
 **Your latencies are much smaller than the paper's. Why?**
-Everything runs on one machine with instant block production, so there is no network or consensus delay.
-The final version adds real transport and block times.
+That was true of the instant-mining chain: no block time, no consensus, no network.
+- On the 4-validator network with one block per second, a message takes **2.75 s** (Merkle batch mode),
+  because every write that the next layer must read waits for a block.
+- The block period is the main setting: 2 s blocks give 5.5 s, 5 s blocks give 13.7 s.
+- Consensus itself adds only ~34 ms per confirmation.
+- Network transfer between layers is still not included.
+
+The paper's numbers come from other studies on different tasks, so they are a reference, not a like-for-like
+comparison.
+
+**What happens when a part of the system fails?**
+It was measured (Experiment F) by switching each part off for 30 s while 10,000 messages streamed:
+- **An edge or fog that fails** hands its traffic to the other one, so no message is lost.
+- **The cloud's input waits at the fogs** and arrives up to 33 s late, but complete.
+- **A crashed blockchain node:** its clients switch to another node within milliseconds and resend what was
+  unconfirmed.
+- **Without these mechanisms,** 19–26% of the messages are lost, including attack traffic.
+- **The 4 validators tolerate one failure** (the chain continues, slower). With two failures the chain halts until
+  one returns, losing nothing and never forking.
 
 **Is the dataset from IEEE DataPort?**
 Yes: Edge-IIoTset, DOI 10.21227/MBC1-1H68. The files were downloaded from the authors' official Kaggle
@@ -1240,9 +1601,27 @@ copy because DataPort requires a subscription login; the files are identical and
 Columns that reveal the answer (IP addresses, timestamps, ports, payloads) are removed, duplicates are
 removed, and all results use test data never seen in training. Every removal is logged with its reason.
 
+**Where does AI improve the blockchain, not only the reverse?**
+Final task 3. Each Merkle root costs ~149k gas whatever it covers, so committing one per device per micro-batch is
+expensive with many devices.
+- **What the AI decides:** a forecaster at the gateway predicts whether a device will send again soon. If it will,
+  the device's batch stays open and the next messages share its root.
+- **Gas:** at 500 devices this saves 22.5% of the gas per message, for +0.82 s of latency.
+- **Against a fixed rule:** the rule saves a little more (26.8%) but adds +1.18 s; at equal gas the AI adds less
+  delay in 59 of 60 comparisons.
+- **What it never touches:** message content or predictions, so accuracy and security are unchanged.
+- **The forecaster's own integrity:** it is registered and verified on-chain like every other model.
+
+**Does it delay attack detection?**
+- Holding a batch delays every message in it, attack messages included: +0.6 s for them at 500 devices.
+- A variant never holds a batch the device model flags as an attack. Attack traffic then keeps the fixed design's
+  latency (3.43 s), and the variant still saves 15% of the gas.
+
 **What is still missing?**
-See §11.6. The main items are real timestamps and device identity (PCAPs), real network transport, a
-multi-node chain, fault-tolerance tests, the AI-driven blockchain part (RQ-11) and the dashboard.
+See §11.6. The three final tasks and the fault-tolerance tests are done. Still missing:
+- time-window features;
+- real network transport and containers;
+- the dashboard.
 
 ---
 

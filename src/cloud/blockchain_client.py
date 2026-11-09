@@ -13,8 +13,11 @@ class ModelNotRegistered(RuntimeError):
 
 
 class CloudChainClient:
-    def __init__(self, chain: Chain, sender: str):
-        self.chain, self.sender = chain, sender
+    """wait=False confirms inference records in the background (nothing reads them on the event path); model
+    registration always waits, because verify_model reads it."""
+
+    def __init__(self, chain: Chain, sender: str, wait: bool = True):
+        self.chain, self.sender, self.wait = chain, sender, wait
 
     def register_model(self, record: dict) -> None:
         self.chain.send("model_register", "registerModel", [
@@ -36,4 +39,4 @@ class CloudChainClient:
         result_hash = hash_object([[e["event_id"], str(p)] for e, p in zip(events, predictions, strict=True)])
         self.chain.send("cloud_inference_record", "recordInference", [
             id32(f"inference:{events[0]['event_id']}"), id32(model_id), h32(result_hash), int(time.time() * 1000),
-        ], self.sender)
+        ], self.sender, wait=self.wait)

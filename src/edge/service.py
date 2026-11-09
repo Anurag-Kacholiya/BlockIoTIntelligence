@@ -33,10 +33,11 @@ class EdgeNode:
             else:
                 self.rejected.append((event["event_id"], reason))
 
-        predictions, confidence = self.model.predict(accepted)
-        for event, pred, conf in zip(accepted, predictions, confidence, strict=True):
+        predictions, confidence, attack_prob = self.model.predict(accepted)
+        for event, pred, conf, p_attack in zip(accepted, predictions, confidence, attack_prob, strict=True):
             event["edge_id"] = self.edge_id
-            event["edge_inference"] = {"model_id": self.model.model_id, "prediction": int(pred), "score": conf}
+            event["edge_inference"] = {"model_id": self.model.model_id, "prediction": int(pred), "score": conf,
+                                       "attack_probability": p_attack}
         if self.ledger is not None:
             self.ledger.commit_processed(accepted)
         return accepted

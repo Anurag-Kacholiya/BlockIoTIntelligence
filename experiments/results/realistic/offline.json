@@ -1,0 +1,14 @@
+{
+  "models": {
+    "real_random/device": "device-decision_tree-b421dfeb72eb",
+    "real_random/edge": "edge-random_forest-9bbc5de52a46",
+    "real_random/fog": "fog-random_forest-ed5caf908cad",
+    "real_random/cloud": "cloud-random_forest-8d2fffdf40ba",
+    "real_time/device": "device-decision_tree-c16091d72e51",
+    "real_time/edge": "edge-random_forest-701d06ee34c6",
+    "real_time/fog": "fog-random_forest-abd0de4c529a",
+    "real_time/cloud": "cloud-random_forest-f46afbd1f848"
+  },
+  "git_commit": "b3fb6936cefb4a7d66fe646b5fa9d96aa4b81924",
+  "config_hash": "a961572bcd7c8c8b59e5c7ee1ba3cf811423d2e8b97df5aea710ff2c94914191"
+}

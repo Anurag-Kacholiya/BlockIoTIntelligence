@@ -24,3 +24,18 @@ training:
   view: dnn                 # which prepared split family to train on (dnn | ml)
   max_train_rows: 300000    # stratified sample of the train split, to keep laptop runs short
   selection_metric: f1_macro
+
+# Final task 3 (RQ-11): the device gateway's traffic forecaster, P(a device sends again within r rounds) from its
+# traffic history (src/device/commit_policy.py). Trained by the cloud on replay-like streams cut from the time split's
+# train windows; scored on the validation windows. The test window (every experiment's replay) is never used.
+forecaster:
+  family: gradient_boosting   # sklearn HistGradientBoostingClassifier
+  params: {max_iter: 300, learning_rate: 0.05}
+  round_size: 256             # messages per round: the pipeline's micro-batch
+  max_hold_rounds: 3          # horizons 1-3 rounds, so policies may hold a batch up to 3 rounds
+  streams:
+    rows: [2500, 5000, 10000, 20000]
+    replicas: [1, 2, 4, 8, 16, 32, 64]   # 10-640 devices; the experiments use 10, 50, 100, 250, 500
+    train_per_size: 6         # random streams per size from the train windows
+    validation_per_size: 2    # ... and from the validation windows
+    seed: 42

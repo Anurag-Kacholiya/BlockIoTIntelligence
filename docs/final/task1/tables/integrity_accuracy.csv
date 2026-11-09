@@ -1,0 +1,9 @@
+tamper_rate,mode,attack_detection_rate,tampered_attack_detection_rate,normal_false_positive_rate,integrity_rejections,tampered_events,throughput_eps
+0.0,baseline,0.8592,,0.0016,0,0,13296.5477
+0.0,batch,0.8592,,0.0016,0,0,1978.4357
+0.1,baseline,0.7734,0.0018,0.0016,0,559,11778.7278
+0.1,batch,0.8729,1.0,0.0016,559,559,1786.0243
+0.25,baseline,0.6472,0.0043,0.0016,0,1408,12947.5286
+0.25,batch,0.8971,1.0,0.0016,1408,1408,1735.957
+0.5,baseline,0.4387,0.0057,0.0016,0,2797,13002.7774
+0.5,batch,0.9344,1.0,0.0016,2796,2797,1501.9697

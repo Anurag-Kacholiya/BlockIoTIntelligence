@@ -1,0 +1,146 @@
+== network check
+{
+  "contract": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "write_block": 4,
+  "write_status": 1,
+  "read_back_on_last_node": true,
+  "nodes": 4,
+  "validators": 4,
+  "heads": [
+    4,
+    4,
+    4,
+    4
+  ],
+  "common_height": 4,
+  "consistent": true,
+  "peers": [
+    3,
+    3,
+    3,
+    3
+  ],
+  "block_period_s": 1
+}
+== experiment groups T2.1-T2.4
+[1/32] {'group': 'comparison', 'chain': 'anvil_automine', 'backend': 'anvil', 'block_time': None, 'mode': 'per_event', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    39 ev/s; message latency mean 6,459 ms, p95 11,355 ms; rejected 0; device commit 1,414 ms
+[2/32] {'group': 'comparison', 'chain': 'anvil_automine', 'backend': 'anvil', 'block_time': None, 'mode': 'batch', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    2,374 ev/s; message latency mean 104 ms, p95 119 ms; rejected 0; device commit 6 ms
+[3/32] {'group': 'comparison', 'chain': 'anvil_1s', 'backend': 'anvil', 'block_time': 1, 'mode': 'per_event', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    75 ev/s; message latency mean 3,323 ms, p95 4,001 ms; rejected 0; device commit 859 ms
+[4/32] {'group': 'comparison', 'chain': 'anvil_1s', 'backend': 'anvil', 'block_time': 1, 'mode': 'batch', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    90 ev/s; message latency mean 2,749 ms, p95 3,010 ms; rejected 0; device commit 947 ms
+[5/32] {'group': 'comparison', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'per_event', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    64 ev/s; message latency mean 3,897 ms, p95 5,018 ms; rejected 0; device commit 995 ms; consistent=True at height 167
+[6/32] {'group': 'comparison', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'batch', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    90 ev/s; message latency mean 2,746 ms, p95 3,015 ms; rejected 0; device commit 985 ms; consistent=True at height 121
+[7/32] {'group': 'comparison', 'chain': 'anvil_automine', 'backend': 'anvil', 'block_time': None, 'mode': 'per_event', 'seed': 43, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    39 ev/s; message latency mean 6,463 ms, p95 11,278 ms; rejected 0; device commit 1,425 ms
+[8/32] {'group': 'comparison', 'chain': 'anvil_automine', 'backend': 'anvil', 'block_time': None, 'mode': 'batch', 'seed': 43, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    2,374 ev/s; message latency mean 104 ms, p95 120 ms; rejected 0; device commit 6 ms
+[9/32] {'group': 'comparison', 'chain': 'anvil_1s', 'backend': 'anvil', 'block_time': 1, 'mode': 'per_event', 'seed': 43, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    75 ev/s; message latency mean 3,298 ms, p95 4,010 ms; rejected 0; device commit 864 ms
+[10/32] {'group': 'comparison', 'chain': 'anvil_1s', 'backend': 'anvil', 'block_time': 1, 'mode': 'batch', 'seed': 43, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    90 ev/s; message latency mean 2,747 ms, p95 3,010 ms; rejected 0; device commit 947 ms
+[11/32] {'group': 'comparison', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'per_event', 'seed': 43, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    62 ev/s; message latency mean 3,997 ms, p95 4,942 ms; rejected 0; device commit 1,015 ms; consistent=True at height 171
+[12/32] {'group': 'comparison', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'batch', 'seed': 43, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    90 ev/s; message latency mean 2,747 ms, p95 3,017 ms; rejected 0; device commit 981 ms; consistent=True at height 121
+[13/32] {'group': 'comparison', 'chain': 'anvil_automine', 'backend': 'anvil', 'block_time': None, 'mode': 'per_event', 'seed': 44, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    38 ev/s; message latency mean 6,609 ms, p95 11,369 ms; rejected 0; device commit 1,448 ms
+[14/32] {'group': 'comparison', 'chain': 'anvil_automine', 'backend': 'anvil', 'block_time': None, 'mode': 'batch', 'seed': 44, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    2,398 ev/s; message latency mean 103 ms, p95 119 ms; rejected 0; device commit 6 ms
+[15/32] {'group': 'comparison', 'chain': 'anvil_1s', 'backend': 'anvil', 'block_time': 1, 'mode': 'per_event', 'seed': 44, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    75 ev/s; message latency mean 3,323 ms, p95 4,008 ms; rejected 0; device commit 862 ms
+[16/32] {'group': 'comparison', 'chain': 'anvil_1s', 'backend': 'anvil', 'block_time': 1, 'mode': 'batch', 'seed': 44, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    90 ev/s; message latency mean 2,747 ms, p95 3,010 ms; rejected 0; device commit 948 ms
+[17/32] {'group': 'comparison', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'per_event', 'seed': 44, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    65 ev/s; message latency mean 3,847 ms, p95 4,515 ms; rejected 0; device commit 986 ms; consistent=True at height 165
+[18/32] {'group': 'comparison', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'batch', 'seed': 44, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    90 ev/s; message latency mean 2,747 ms, p95 3,015 ms; rejected 0; device commit 978 ms; consistent=True at height 121
+[19/32] {'group': 'await_all', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'per_event', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'await'}
+    43 ev/s; message latency mean 5,821 ms, p95 6,991 ms; rejected 0; device commit 1,113 ms; consistent=True at height 243
+[20/32] {'group': 'await_all', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'batch', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'await'}
+    53 ev/s; message latency mean 4,746 ms, p95 5,014 ms; rejected 0; device commit 985 ms; consistent=True at height 200
+[21/32] {'group': 'block_period', 'chain': 'qbft_2s', 'backend': 'qbft', 'block_time': 2, 'mode': 'batch', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    45 ev/s; message latency mean 5,497 ms, p95 6,013 ms; rejected 0; device commit 1,991 ms; consistent=True at height 120
+[22/32] {'group': 'block_period', 'chain': 'qbft_5s', 'backend': 'qbft', 'block_time': 5, 'mode': 'batch', 'seed': 42, 'replicas': 1, 'rows': 10000, 'audit_writes': 'background'}
+    18 ev/s; message latency mean 13,745 ms, p95 15,022 ms; rejected 0; device commit 4,981 ms; consistent=True at height 120
+[23/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'batch', 'seed': 42, 'replicas': 1, 'rows': 5000, 'audit_writes': 'background'}
+    91 ev/s; message latency mean 2,694 ms, p95 3,019 ms; rejected 0; device commit 987 ms; consistent=True at height 65
+[24/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'per_event', 'seed': 42, 'replicas': 1, 'rows': 5000, 'audit_writes': 'background'}
+    61 ev/s; message latency mean 4,053 ms, p95 5,026 ms; rejected 0; device commit 977 ms; consistent=True at height 92
+[25/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'batch', 'seed': 42, 'replicas': 5, 'rows': 5000, 'audit_writes': 'background'}
+    82 ev/s; message latency mean 2,996 ms, p95 3,011 ms; rejected 0; device commit 990 ms; consistent=True at height 71
+[26/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'per_event', 'seed': 42, 'replicas': 5, 'rows': 5000, 'audit_writes': 'background'}
+    60 ev/s; message latency mean 4,147 ms, p95 5,104 ms; rejected 0; device commit 1,017 ms; consistent=True at height 94
+[27/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'batch', 'seed': 42, 'replicas': 10, 'rows': 5000, 'audit_writes': 'background'}
+    81 ev/s; message latency mean 3,046 ms, p95 3,074 ms; rejected 0; device commit 975 ms; consistent=True at height 72
+[28/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'per_event', 'seed': 42, 'replicas': 10, 'rows': 5000, 'audit_writes': 'background'}
+    59 ev/s; message latency mean 4,200 ms, p95 5,870 ms; rejected 0; device commit 966 ms; consistent=True at height 95
+[29/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'batch', 'seed': 42, 'replicas': 25, 'rows': 5000, 'audit_writes': 'background'}
+    81 ev/s; message latency mean 3,046 ms, p95 3,099 ms; rejected 0; device commit 943 ms; consistent=True at height 73
+[30/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'per_event', 'seed': 42, 'replicas': 25, 'rows': 5000, 'audit_writes': 'background'}
+    60 ev/s; message latency mean 4,098 ms, p95 4,897 ms; rejected 0; device commit 955 ms; consistent=True at height 94
+[31/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'batch', 'seed': 42, 'replicas': 50, 'rows': 5000, 'audit_writes': 'background'}
+    70 ev/s; message latency mean 3,547 ms, p95 4,118 ms; rejected 0; device commit 932 ms; consistent=True at height 83
+[32/32] {'group': 'scaling', 'chain': 'qbft_1s', 'backend': 'qbft', 'block_time': 1, 'mode': 'per_event', 'seed': 42, 'replicas': 50, 'rows': 5000, 'audit_writes': 'background'}
+    58 ev/s; message latency mean 4,249 ms, p95 5,165 ms; rejected 0; device commit 982 ms; consistent=True at height 97
+results: /Users/sivasai11/PG/1-3/RIS/PROJECT/BlockIoTIntelligence/experiments/results/final_task2/runs.jsonl
+== security on QBFT
+pass done: tamper
+pass done: replay_same_edge
+pass done: replay_cross_edge
+pass done: unregistered_device
+pass done: impersonation
+      mode                                  attack  events  rejected  false_reject_rate  detection_rate  false_accept_rate
+  baseline              legitimate (during tamper)    2870         0              0.000             NaN                NaN
+  baseline                                  tamper     130         0                NaN           0.000              1.000
+blockchain              legitimate (during tamper)    2870         0              0.000             NaN                NaN
+blockchain                                  tamper     130       130                NaN           1.000              0.000
+  baseline    legitimate (during replay_same_edge)    3000         0              0.000             NaN                NaN
+  baseline                        replay_same_edge     134       134                NaN           1.000              0.000
+blockchain    legitimate (during replay_same_edge)    3000         0              0.000             NaN                NaN
+blockchain                        replay_same_edge     134       134                NaN           1.000              0.000
+  baseline   legitimate (during replay_cross_edge)    3000         0              0.000             NaN                NaN
+  baseline                       replay_cross_edge     134        87                NaN           0.649              0.351
+blockchain   legitimate (during replay_cross_edge)    3000         0              0.000             NaN                NaN
+blockchain                       replay_cross_edge     134       134                NaN           1.000              0.000
+  baseline legitimate (during unregistered_device)    3000         0              0.000             NaN                NaN
+  baseline                     unregistered_device     140         0                NaN           0.000              1.000
+blockchain legitimate (during unregistered_device)    3000         0              0.000             NaN                NaN
+blockchain                     unregistered_device     140       140                NaN           1.000              0.000
+  baseline       legitimate (during impersonation)    3000      2685              0.895             NaN                NaN
+  baseline                           impersonation     140         0                NaN           0.000              1.000
+blockchain       legitimate (during impersonation)    3000         0              0.000             NaN                NaN
+blockchain                           impersonation     140       140                NaN           1.000              0.000
+  baseline              model_tamper_artifact_only       1         1                NaN           1.000              0.000
+  baseline        model_tamper_artifact_and_record       1         0                NaN           0.000              1.000
+blockchain              model_tamper_artifact_only       1         1                NaN           1.000              0.000
+blockchain        model_tamper_artifact_and_record       1         1                NaN           1.000              0.000
+blockchain               unauthorized_ledger_write       1         1                NaN           1.000              0.000
+edge verification cost per event (ms): {'baseline': 0.049, 'blockchain': 17.886}
+detected by: {
+ "legitimate (during tamper)": "{}",
+ "tamper": "{\"hash_mismatch\": 130}",
+ "legitimate (during replay_same_edge)": "{}",
+ "replay_same_edge": "{\"duplicate_event\": 134}",
+ "legitimate (during replay_cross_edge)": "{}",
+ "replay_cross_edge": "{\"replay_already_processed\": 134}",
+ "legitimate (during unregistered_device)": "{}",
+ "unregistered_device": "{\"unregistered_device\": 140}",
+ "legitimate (during impersonation)": "{}",
+ "impersonation": "{\"identity_mismatch\": 140}",
+ "model_tamper_artifact_only": "{\"local record mismatch\": 1}",
+ "model_tamper_artifact_and_record": "{\"on-chain registry mismatch\": 1}",
+ "unauthorized_ledger_write": "{\"contract_revert_NotAuthorized\": 1}"
+}
+== figures
+figure 11_message_latency_by_chain.png
+figure 12_throughput_by_chain.png
+figure 13_latency_vs_block_period.png
+figure 14_scaling_single_node_vs_qbft.png
+figure 04_security_detection.png
+FINAL_TASK2_DONE
+exit 0

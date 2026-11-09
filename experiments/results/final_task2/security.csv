@@ -1,0 +1,26 @@
+mode,attack,events,rejected,reasons,false_reject_rate,detection_rate,false_accept_rate
+baseline,legitimate (during tamper),2870,0,{},0.0,,
+baseline,tamper,130,0,{},,0.0,1.0
+blockchain,legitimate (during tamper),2870,0,{},0.0,,
+blockchain,tamper,130,130,"{""hash_mismatch"": 130}",,1.0,0.0
+baseline,legitimate (during replay_same_edge),3000,0,{},0.0,,
+baseline,replay_same_edge,134,134,"{""duplicate_event"": 134}",,1.0,0.0
+blockchain,legitimate (during replay_same_edge),3000,0,{},0.0,,
+blockchain,replay_same_edge,134,134,"{""duplicate_event"": 134}",,1.0,0.0
+baseline,legitimate (during replay_cross_edge),3000,0,{},0.0,,
+baseline,replay_cross_edge,134,87,"{""sequence_regression"": 85, ""duplicate_event"": 2}",,0.6492537313432836,0.35074626865671643
+blockchain,legitimate (during replay_cross_edge),3000,0,{},0.0,,
+blockchain,replay_cross_edge,134,134,"{""replay_already_processed"": 134}",,1.0,0.0
+baseline,legitimate (during unregistered_device),3000,0,{},0.0,,
+baseline,unregistered_device,140,0,{},,0.0,1.0
+blockchain,legitimate (during unregistered_device),3000,0,{},0.0,,
+blockchain,unregistered_device,140,140,"{""unregistered_device"": 140}",,1.0,0.0
+baseline,legitimate (during impersonation),3000,2685,"{""sequence_regression"": 2685}",0.895,,
+baseline,impersonation,140,0,{},,0.0,1.0
+blockchain,legitimate (during impersonation),3000,0,{},0.0,,
+blockchain,impersonation,140,140,"{""identity_mismatch"": 140}",,1.0,0.0
+baseline,model_tamper_artifact_only,1,1,"{""local record mismatch"": 1}",,1.0,0.0
+baseline,model_tamper_artifact_and_record,1,0,{},,0.0,1.0
+blockchain,model_tamper_artifact_only,1,1,"{""local record mismatch"": 1}",,1.0,0.0
+blockchain,model_tamper_artifact_and_record,1,1,"{""on-chain registry mismatch"": 1}",,1.0,0.0
+blockchain,unauthorized_ledger_write,1,1,"{""contract_revert_NotAuthorized"": 1}",,1.0,0.0

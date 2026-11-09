@@ -1,0 +1,91 @@
+{
+  "args": {
+    "rows": 10000,
+    "mode": "batch",
+    "rates": "0,0.1,0.25,0.5",
+    "seed": 42,
+    "replay": "realistic"
+  },
+  "records": [
+    {
+      "tamper_rate": 0.0,
+      "mode": "baseline",
+      "attack_detection_rate": 0.8591800356506238,
+      "tampered_attack_detection_rate": NaN,
+      "normal_false_positive_rate": 0.0015945330296127562,
+      "integrity_rejections": 0,
+      "tampered_events": 0,
+      "throughput_eps": 13296.547704596876
+    },
+    {
+      "tamper_rate": 0.0,
+      "mode": "batch",
+      "attack_detection_rate": 0.8591800356506238,
+      "tampered_attack_detection_rate": NaN,
+      "normal_false_positive_rate": 0.0015945330296127562,
+      "integrity_rejections": 0,
+      "tampered_events": 0,
+      "throughput_eps": 1978.4357428954156
+    },
+    {
+      "tamper_rate": 0.1,
+      "mode": "baseline",
+      "attack_detection_rate": 0.7734402852049911,
+      "tampered_attack_detection_rate": 0.0017889087656529517,
+      "normal_false_positive_rate": 0.0015945330296127562,
+      "integrity_rejections": 0,
+      "tampered_events": 559,
+      "throughput_eps": 11778.727766723423
+    },
+    {
+      "tamper_rate": 0.1,
+      "mode": "batch",
+      "attack_detection_rate": 0.8729055258467023,
+      "tampered_attack_detection_rate": 1.0,
+      "normal_false_positive_rate": 0.0015945330296127562,
+      "integrity_rejections": 559,
+      "tampered_events": 559,
+      "throughput_eps": 1786.0242607504626
+    },
+    {
+      "tamper_rate": 0.25,
+      "mode": "baseline",
+      "attack_detection_rate": 0.6472370766488413,
+      "tampered_attack_detection_rate": 0.004261363636363636,
+      "normal_false_positive_rate": 0.0015945330296127562,
+      "integrity_rejections": 0,
+      "tampered_events": 1408,
+      "throughput_eps": 12947.52862171647
+    },
+    {
+      "tamper_rate": 0.25,
+      "mode": "batch",
+      "attack_detection_rate": 0.8971479500891265,
+      "tampered_attack_detection_rate": 1.0,
+      "normal_false_positive_rate": 0.0015945330296127562,
+      "integrity_rejections": 1408,
+      "tampered_events": 1408,
+      "throughput_eps": 1735.9570211397684
+    },
+    {
+      "tamper_rate": 0.5,
+      "mode": "baseline",
+      "attack_detection_rate": 0.438680926916221,
+      "tampered_attack_detection_rate": 0.00572041473006793,
+      "normal_false_positive_rate": 0.0015945330296127562,
+      "integrity_rejections": 0,
+      "tampered_events": 2797,
+      "throughput_eps": 13002.777435600803
+    },
+    {
+      "tamper_rate": 0.5,
+      "mode": "batch",
+      "attack_detection_rate": 0.9344028520499109,
+      "tampered_attack_detection_rate": 1.0,
+      "normal_false_positive_rate": 0.0015945330296127562,
+      "integrity_rejections": 2796,
+      "tampered_events": 2797,
+      "throughput_eps": 1501.9696540676675
+    }
+  ]
+}

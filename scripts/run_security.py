@@ -1,10 +1,13 @@
 """Security experiment (ADR §11.2 Experiment D, §14.3): inject attacks on real Edge-IIoTset traffic and
 measure what the baseline and the blockchain-enabled architecture each detect.
 
-  python scripts/run_security.py [--rows 3000] [--rate 0.05]
+  python scripts/run_security.py [--rows 3000] [--rate 0.05] [--replay realistic] [--chain qbft]
 
 Attacks are synthetic mutations of real events, as the dataset plan's synthetic-data policy allows.
-Writes experiments/results/exp_security.csv and security-<timestamp>.json.
+Writes experiments/results/exp_security.csv and security-<timestamp>.json; with --replay realistic (dataset v2: real
+devices and timing, view real_time models) experiments/results/realistic/security.csv and security-<timestamp>.json.
+--chain qbft (final task 2) runs every blockchain pass on a fresh network of 4 Besu validators (QBFT consensus, the
+layers spread over the nodes) and writes experiments/results/final_task2/security.csv.
 """
 
 from __future__ import annotations
@@ -12,6 +15,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
 import random
 import shutil
 import sys
@@ -19,6 +23,7 @@ import tempfile
 import time
 import zlib
 from collections import defaultdict
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -26,30 +31,31 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.cloud.model_registry import ModelIntegrityError  # noqa: E402
+from src.cloud.model_registry import ModelIntegrityError, layer_dir  # noqa: E402
 from src.cloud.service import CloudNode  # noqa: E402
-from src.common.blockchain import Chain, h32, id32, local_node  # noqa: E402
-from src.common.config import load_config, resolve  # noqa: E402
+from src.common.blockchain import Chain, LocalSigner, connect, h32, id32, local_node  # noqa: E402
+from src.common.config import active_view, load_config, resolve  # noqa: E402
 from src.common.crypto import DeviceKey, hash_file  # noqa: E402
+from src.common.schemas import Layer  # noqa: E402
 from src.device.collector import seal  # noqa: E402
 from src.device.service import DeviceLayer  # noqa: E402
-from src.device.simulator import DeviceSimulator  # noqa: E402
+from src.device.simulator import DeviceSimulator, RealtimeReplay  # noqa: E402
 from src.edge.service import EdgeNode  # noqa: E402
 from src.fog.service import FogNode  # noqa: E402
-from src.pipeline import attach_blockchain, load_stream_rows  # noqa: E402
+from src.pipeline import attach_blockchain, load_replay_rows, load_stream_rows  # noqa: E402
 
 ATTACKS = ["tamper", "replay_same_edge", "replay_cross_edge", "unregistered_device", "impersonation"]
 
 
-def stream_with_attacks(mode: str, attack_type: str, rows: pd.DataFrame, n_devices: int, n_edges: int,
-                        rate: float, seed: int, chain: Chain | None) -> tuple[list[dict], dict]:
+def stream_with_attacks(mode: str, attack_type: str, make_sim, n_edges: int, rate: float, seed: int,
+                        chain: Chain | list[Chain] | None) -> tuple[list[dict], dict]:
     """One isolated pass: real traffic plus a single attack type, so attacks cannot mask each other."""
     rng = random.Random(seed)
-    sim = DeviceSimulator(rows, n_devices, seed)
+    sim = make_sim()
     device_layer = DeviceLayer()
     edges = [EdgeNode(f"edge-{i:02d}") for i in range(n_edges)]
     if chain is not None:
-        attach_blockchain(chain, "per_event", seed, [sim.device_id(i) for i in range(n_devices)], device_layer,
+        attach_blockchain(chain, "per_event", seed, sim.device_ids, device_layer,
                           edges, [FogNode("fog-00")], CloudNode())
     attacker_key = DeviceKey.from_seed(b"attacker")
     history: list[tuple[dict, int]] = []          # (processed event, edge index) available for replay
@@ -118,14 +124,14 @@ def unauthorized_write(chain: Chain) -> dict:
 def model_tamper(chain: Chain | None, mode: str) -> list[dict]:
     """ADR §14.3 Test 4, in two strengths: artifact-only tampering, and tampering that also rewrites the
     local provenance record so the local hash check passes."""
-    layer_dir = resolve(load_config("base")["paths"]["models"]) / "edge"
-    record = json.loads((layer_dir / f"{json.loads((layer_dir / 'current.json').read_text())['model_id']}.json")
+    edge_dir = layer_dir(Layer.EDGE)
+    record = json.loads((edge_dir / f"{json.loads((edge_dir / 'current.json').read_text())['model_id']}.json")
                         .read_text())
     out = []
     with tempfile.TemporaryDirectory() as tmp:
         for attack in ("model_tamper_artifact_only", "model_tamper_artifact_and_record"):
             artifact = Path(tmp) / record["artifact"]
-            shutil.copy(layer_dir / record["artifact"], artifact)
+            shutil.copy(edge_dir / record["artifact"], artifact)
             local = dict(record)
             if chain is not None:
                 chain.send("model_register", "registerModel",
@@ -152,27 +158,49 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--rows", type=int, default=3000)
     parser.add_argument("--rate", type=float, default=0.05, help="fraction of traffic tampered / injected")
-    parser.add_argument("--devices", type=int, default=10)
+    parser.add_argument("--devices", type=int, default=10, help="random replay only; dataset v2 has its real devices")
     parser.add_argument("--edges", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--replay", choices=["random", "realistic"], default="random")
+    parser.add_argument("--chain", choices=["anvil", "qbft"], default="anvil")
     args = parser.parse_args()
+    if args.chain == "qbft" and args.replay != "realistic":
+        parser.error("--chain qbft belongs to final task 2, which runs on dataset v2: add --replay realistic")
 
-    view = load_config("models")["training"]["view"]
-    rows, _ = load_stream_rows(view, args.rows, args.seed)
+    @contextmanager
+    def fresh_chain():
+        """A new chain per pass: one Anvil node, or a QBFT network with one Chain per validator (owner on node 0)."""
+        if args.chain == "anvil":
+            with local_node() as (url, _):
+                yield [Chain(url)]
+        else:
+            from src.common.qbft import qbft_network
+
+            with qbft_network() as net:
+                yield connect(net.urls, LocalSigner())
+
+    if args.replay == "realistic":
+        os.environ["BLOCKIOT_VIEW"] = "real_time"      # the only models that never saw the replayed window
+        rows, _ = load_replay_rows(args.rows)
+        def make_sim():
+            return RealtimeReplay(rows, seed=args.seed)
+    else:
+        rows, _ = load_stream_rows(active_view(), args.rows, args.seed)
+        def make_sim():
+            return DeviceSimulator(rows, args.devices, args.seed)
     outcomes, timing = [], defaultdict(list)
     for attack in ATTACKS:
-        o, t = stream_with_attacks("baseline", attack, rows, args.devices, args.edges, args.rate, args.seed, None)
+        o, t = stream_with_attacks("baseline", attack, make_sim, args.edges, args.rate, args.seed, None)
         outcomes += o
         timing["baseline"].append(t["edge_ms_per_event_mean"])
-        with local_node() as (url, _):                       # fresh chain per pass
-            o, t = stream_with_attacks("blockchain", attack, rows, args.devices, args.edges, args.rate, args.seed,
-                                       Chain(url))
+        with fresh_chain() as chains:                        # fresh chain per pass
+            o, t = stream_with_attacks("blockchain", attack, make_sim, args.edges, args.rate, args.seed, chains)
         outcomes += o
         timing["blockchain"].append(t["edge_ms_per_event_mean"])
         print(f"pass done: {attack}", flush=True)
     outcomes += model_tamper(None, "baseline")
-    with local_node() as (url, _):
-        chain = Chain(url)
+    with fresh_chain() as chains:
+        chain = chains[0]
         chain.deploy()
         outcomes += model_tamper(chain, "blockchain") + [unauthorized_write(chain)]
     timing = {k: {"edge_ms_per_event_mean": sum(v) / len(v)} for k, v in timing.items()}
@@ -191,9 +219,11 @@ def main() -> None:
         rows_out.append(row)
     summary = pd.DataFrame(rows_out)
 
-    out = resolve(load_config("base")["paths"]["results"])
+    out, name = resolve(load_config("base")["paths"]["results"]), "exp_security"
+    if args.replay == "realistic":
+        out, name = out / ("final_task2" if args.chain == "qbft" else "realistic"), "security"
     out.mkdir(parents=True, exist_ok=True)
-    summary.to_csv(out / "exp_security.csv", index=False)
+    summary.to_csv(out / f"{name}.csv", index=False)
     stamp = f"{datetime.now(UTC):%Y%m%dT%H%M%S}"
     (out / f"security-{stamp}.json").write_text(json.dumps(
         {"args": vars(args), "timing": timing, "summary": summary.to_dict("records")}, indent=2, default=str))

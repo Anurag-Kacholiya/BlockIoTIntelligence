@@ -5,11 +5,9 @@ from __future__ import annotations
 from src.common.crypto import DeviceKey, payload_hash
 
 
-def device_keys(n_devices: int, seed: int) -> dict[str, DeviceKey]:
+def device_keys(device_ids: list[str], seed: int) -> dict[str, DeviceKey]:
     """Deterministic per-device identities so repeated runs register the same public keys."""
-    from src.device.simulator import DeviceSimulator
-
-    return {DeviceSimulator.device_id(i): DeviceKey.from_seed(f"{seed}:{i}".encode()) for i in range(n_devices)}
+    return {d: DeviceKey.from_seed(f"{seed}:{i}".encode()) for i, d in enumerate(device_ids)}
 
 
 def seal(event: dict, key: DeviceKey) -> dict:

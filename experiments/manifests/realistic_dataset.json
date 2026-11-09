@@ -1,0 +1,795 @@
+{
+  "source": {
+    "source_file": "data/standardized/events/<capture>.parquet (24 Edge-IIoTset captures, tshark re-extraction)",
+    "source_hash": "sha256:0e39a8d1c35a8cb1221c0f5da412a5a707a28e8a3f9e781f878f2144f2da285a",
+    "captures": {
+      "temperature_humidity": "sha256:956bf077485ff82c1b8fbbc88adce2350e1b39fa9fa6447c9c1069d08668896c",
+      "distance": "sha256:2b86b9cc12582f22969dcee7eb52a230fda8128696206915592cfc6423403750",
+      "ph_value": "sha256:69565b360558bef27a6318ca07cbdc3a127916ba5a497a6614c2366bd4c87c4e",
+      "heart_rate": "sha256:bff2678c894569344ef8a0c30395bf39877a6090cec95f6fdc6fa217bdfd2180",
+      "water_level": "sha256:67941bd8c3c33b4590fd57618d078cb4fb67a32b84764fea4c8116127554926e",
+      "ir_receiver": "sha256:872acff74be407e7e1790903ae7330c2acddab6992cf7ff4cad04a386548de96",
+      "sound_sensor": "sha256:349fd0255ed87af2a685ed170f762361500d27a6ec13b25772522536c75039f8",
+      "flame_sensor": "sha256:f0982c9fe55a6055602e88ed1d0e647052fc4a4828d4bbd838ced8d7516e6adc",
+      "modbus": "sha256:3dfd5bbdb2f28cf16331596551d3f3c24eb4e5d10168fe0cc11dd88e0d080f2c",
+      "soil_moisture": "sha256:21cc7c9455be30bf361eca13a4c8b8abb344c0696ec0a41bc8556527880856cb",
+      "backdoor": "sha256:3a241e2d00abe34c12e2fdc1eaa9542ff19c763a40d9f4b7c79145f3de3a5616",
+      "ddos_http": "sha256:e760de8b025ecb91b1022cfb2c56a030f32194478571c0dc0775d6f386906fb7",
+      "ddos_icmp": "sha256:90ecf0d73079fdaae24ecfdeb5230c77617ef5fa7100826ad7cabe94d57d668e",
+      "ddos_tcp": "sha256:33407dcd35541bf2fca8329badba608f1c3321e402d72a11fc8331cc87151c0b",
+      "ddos_udp": "sha256:1bc749904216b0e0c597ea37b9886cbfe93823e9a3dfd3fc379b430d22ed5c07",
+      "mitm": "sha256:6cc0c189882fdfbc61e93fab65771fcb20f47b98eddbf93a6d0d6841a5a7d968",
+      "os_fingerprinting": "sha256:26315273084f18601a573f74eb6836bf33b67b69290780cf5e8c57bbbd5d1a25",
+      "password": "sha256:b08acc61da22c8b1cc970fca0444f70f55311b356f511175aee0dba3caf9e7d5",
+      "port_scanning": "sha256:f4c3a11f40759899d22db45caa27a45d743c9005e193669a5d5d9d50c381aea4",
+      "ransomware": "sha256:4ee50e42ecefa93424411cc9a4c95afc41edd8435acd819cd57d5908e476573c",
+      "sql_injection": "sha256:f00c7e1748e063e328863ea1440634c1ce442704c6ff1e549e3d0bde6000b53e",
+      "uploading": "sha256:c5014aba75e7762985d47eeba34f7e8e3ec83bcccfc52d3547ca39eadc11827b",
+      "vulnerability_scanner": "sha256:3ed7578fbd47385da5e70b962e9d81549345229ebf94deb248ee4806802956f3",
+      "xss": "sha256:642a335e2c930a3b869b41ebc673debd54df7bafe8a62a7f236e58b8a87ea891"
+    }
+  },
+  "preprocessing_version": "2.0.0",
+  "seed": 42,
+  "config_hash": "111c5ac184971d597bf96435000f02e488e526b11a9e9d2b9afb91f2fde60091",
+  "git_commit": "b3fb6936cefb4a7d66fe646b5fa9d96aa4b81924",
+  "cleaning": {
+    "rows_labelled": 21002440,
+    "rows_dropped_unparseable_or_inf": 0,
+    "rows_dropped_duplicate": 4682001,
+    "rows_after_dedup": 16320439,
+    "rows_after_dedup_with_label_conflict": 580675,
+    "rows_after_dedup_with_label_conflict_by_class": {
+      "Normal": 448706,
+      "Password": 67180,
+      "DDoS_HTTP": 48607,
+      "Uploading": 7349,
+      "SQL_injection": 4311,
+      "Vulnerability_scanner": 1446,
+      "XSS": 1197,
+      "Backdoor": 832,
+      "Ransomware": 594,
+      "DDoS_UDP": 265,
+      "Fingerprinting": 145,
+      "MITM": 14,
+      "DDoS_ICMP": 11,
+      "DDoS_TCP": 9,
+      "Port_Scanning": 9
+    },
+    "max_rows_per_stratum": 100000,
+    "rows_out": 1757956,
+    "rows_with_label_conflict": {
+      "Normal": 26300,
+      "DDoS_HTTP": 15506,
+      "Uploading": 5617,
+      "Password": 5070,
+      "SQL_injection": 3297,
+      "XSS": 944,
+      "Vulnerability_scanner": 772,
+      "Backdoor": 637,
+      "Ransomware": 452,
+      "Fingerprinting": 121,
+      "MITM": 9,
+      "Port_Scanning": 9,
+      "DDoS_ICMP": 4,
+      "DDoS_UDP": 3
+    },
+    "constant_columns_dropped": [
+      "icmp.unused",
+      "http.tls_port",
+      "mqtt.conack.flags",
+      "mqtt.msg_decoded_as"
+    ],
+    "numeric_columns": [
+      "arp.opcode",
+      "arp.hw.size",
+      "icmp.checksum",
+      "icmp.seq_le",
+      "http.content_length",
+      "http.response",
+      "tcp.ack",
+      "tcp.ack_raw",
+      "tcp.checksum",
+      "tcp.connection.fin",
+      "tcp.connection.rst",
+      "tcp.connection.syn",
+      "tcp.connection.synack",
+      "tcp.flags",
+      "tcp.flags.ack",
+      "tcp.len",
+      "tcp.seq",
+      "udp.stream",
+      "udp.time_delta",
+      "dns.qry.name.len",
+      "dns.qry.qu",
+      "dns.qry.type",
+      "dns.retransmission",
+      "dns.retransmit_request",
+      "dns.retransmit_request_in",
+      "mqtt.conflag.cleansess",
+      "mqtt.conflags",
+      "mqtt.hdrflags",
+      "mqtt.len",
+      "mqtt.msgtype",
+      "mqtt.proto_len",
+      "mqtt.topic_len",
+      "mqtt.ver",
+      "mbtcp.len",
+      "mbtcp.trans_id",
+      "mbtcp.unit_id"
+    ],
+    "categorical_columns": [
+      "http.request.method",
+      "http.referer",
+      "http.request.version",
+      "mqtt.protoname",
+      "mqtt.topic"
+    ]
+  },
+  "per_capture": {
+    "temperature_humidity": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 1629749,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 229244,
+      "rows_after_dedup": 1400505,
+      "rows_sampled": 100000,
+      "sessions": 5
+    },
+    "distance": {
+      "device_id": "hcsr04_distance",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 1143948,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 200898,
+      "rows_after_dedup": 943050,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "ph_value": {
+      "device_id": "ph4502c_ph",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 759665,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 161036,
+      "rows_after_dedup": 598629,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "heart_rate": {
+      "device_id": "pulse_heart_rate",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 170435,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 31017,
+      "rows_after_dedup": 139418,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "water_level": {
+      "device_id": "water_level",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 2302497,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 457626,
+      "rows_after_dedup": 1844871,
+      "rows_sampled": 100000,
+      "sessions": 2
+    },
+    "ir_receiver": {
+      "device_id": "ir_receiver",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 1308238,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 233489,
+      "rows_after_dedup": 1074749,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "sound_sensor": {
+      "device_id": "lm393_sound",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 1513318,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 282051,
+      "rows_after_dedup": 1231267,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "flame_sensor": {
+      "device_id": "g1006_flame",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 1070510,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 192908,
+      "rows_after_dedup": 877602,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "modbus": {
+      "device_id": "modbus_tcp",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 159514,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 1317,
+      "rows_after_dedup": 158197,
+      "rows_sampled": 100000,
+      "sessions": 2
+    },
+    "soil_moisture": {
+      "device_id": "soil_moisture",
+      "label": "Normal",
+      "kind": "normal",
+      "rows_labelled": 1200751,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 268570,
+      "rows_after_dedup": 932181,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "backdoor": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "Backdoor",
+      "kind": "attack",
+      "rows_labelled": 24862,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 830,
+      "rows_after_dedup": 24032,
+      "rows_sampled": 24032,
+      "sessions": 2
+    },
+    "ddos_http": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "DDoS_HTTP",
+      "kind": "attack",
+      "rows_labelled": 229022,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 14342,
+      "rows_after_dedup": 214680,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "ddos_icmp": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "DDoS_ICMP",
+      "kind": "attack",
+      "rows_labelled": 2914354,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 2567450,
+      "rows_after_dedup": 346904,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "ddos_tcp": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "DDoS_TCP",
+      "kind": "attack",
+      "rows_labelled": 2020120,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 1175,
+      "rows_after_dedup": 2018945,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "ddos_udp": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "DDoS_UDP",
+      "kind": "attack",
+      "rows_labelled": 3215732,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 216,
+      "rows_after_dedup": 3215516,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "mitm": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "MITM",
+      "kind": "attack",
+      "rows_labelled": 1229,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 815,
+      "rows_after_dedup": 414,
+      "rows_sampled": 414,
+      "sessions": 1
+    },
+    "os_fingerprinting": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "Fingerprinting",
+      "kind": "attack",
+      "rows_labelled": 1001,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 141,
+      "rows_after_dedup": 860,
+      "rows_sampled": 860,
+      "sessions": 1
+    },
+    "password": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "Password",
+      "kind": "attack",
+      "rows_labelled": 1053385,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 32968,
+      "rows_after_dedup": 1020417,
+      "rows_sampled": 100000,
+      "sessions": 2
+    },
+    "port_scanning": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "Port_Scanning",
+      "kind": "attack",
+      "rows_labelled": 22564,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 2581,
+      "rows_after_dedup": 19983,
+      "rows_sampled": 19983,
+      "sessions": 1
+    },
+    "ransomware": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "Ransomware",
+      "kind": "attack",
+      "rows_labelled": 10925,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 1230,
+      "rows_after_dedup": 9695,
+      "rows_sampled": 9695,
+      "sessions": 2
+    },
+    "sql_injection": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "SQL_injection",
+      "kind": "attack",
+      "rows_labelled": 51203,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 309,
+      "rows_after_dedup": 50894,
+      "rows_sampled": 50894,
+      "sessions": 1
+    },
+    "uploading": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "Uploading",
+      "kind": "attack",
+      "rows_labelled": 37634,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 636,
+      "rows_after_dedup": 36998,
+      "rows_sampled": 36998,
+      "sessions": 1
+    },
+    "vulnerability_scanner": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "Vulnerability_scanner",
+      "kind": "attack",
+      "rows_labelled": 145869,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 317,
+      "rows_after_dedup": 145552,
+      "rows_sampled": 100000,
+      "sessions": 1
+    },
+    "xss": {
+      "device_id": "dht11_temperature_humidity",
+      "label": "XSS",
+      "kind": "attack",
+      "rows_labelled": 15915,
+      "rows_dropped_unparseable_or_inf": 0,
+      "rows_dropped_duplicate": 835,
+      "rows_after_dedup": 15080,
+      "rows_sampled": 15080,
+      "sessions": 1
+    }
+  },
+  "file_hashes": {
+    "canonical": "sha256:fa51b8db76a21e8c118c53107462471dac351af916f19e62b8021831999f9945",
+    "session_cuts": "sha256:e28975f7de273d7dd01a74ad8d3017310a607532825ca59a5e5a983a70590ac5"
+  },
+  "class_counts": {
+    "Normal": 1000000,
+    "DDoS_HTTP": 100000,
+    "DDoS_ICMP": 100000,
+    "DDoS_TCP": 100000,
+    "DDoS_UDP": 100000,
+    "Password": 100000,
+    "Vulnerability_scanner": 100000,
+    "SQL_injection": 50894,
+    "Uploading": 36998,
+    "Backdoor": 24032,
+    "Port_Scanning": 19983,
+    "XSS": 15080,
+    "Ransomware": 9695,
+    "Fingerprinting": 860,
+    "MITM": 414
+  },
+  "normal_device_counts": {
+    "dht11_temperature_humidity": 100000,
+    "hcsr04_distance": 100000,
+    "ph4502c_ph": 100000,
+    "pulse_heart_rate": 100000,
+    "water_level": 100000,
+    "ir_receiver": 100000,
+    "lm393_sound": 100000,
+    "g1006_flame": 100000,
+    "modbus_tcp": 100000,
+    "soil_moisture": 100000
+  },
+  "time_partition_counts": {
+    "train": 1190684,
+    "validation": 286353,
+    "test": 280919
+  },
+  "sessions": [
+    {
+      "capture": "temperature_humidity",
+      "session": 0,
+      "rows": 884555,
+      "start_us": 1637491450081753,
+      "end_us": 1637530272740630,
+      "validation_start_us": 1637520218167678,
+      "test_start_us": 1637521621660566
+    },
+    {
+      "capture": "temperature_humidity",
+      "session": 1,
+      "rows": 394997,
+      "start_us": 1637591660252618,
+      "end_us": 1637617805757227,
+      "validation_start_us": 1637610440180329,
+      "test_start_us": 1637614087011351
+    },
+    {
+      "capture": "temperature_humidity",
+      "session": 2,
+      "rows": 190367,
+      "start_us": 1637679338804754,
+      "end_us": 1637690830421639,
+      "validation_start_us": 1637687726808435,
+      "test_start_us": 1637689525933828
+    },
+    {
+      "capture": "temperature_humidity",
+      "session": 3,
+      "rows": 156293,
+      "start_us": 1637695650270762,
+      "end_us": 1637705429988676,
+      "validation_start_us": 1637702493638471,
+      "test_start_us": 1637703962497278
+    },
+    {
+      "capture": "temperature_humidity",
+      "session": 4,
+      "rows": 3537,
+      "start_us": 1639959767981993,
+      "end_us": 1639960855043322,
+      "validation_start_us": 1639960252037620,
+      "test_start_us": 1639960522455977
+    },
+    {
+      "capture": "distance",
+      "session": 0,
+      "rows": 1143948,
+      "start_us": 1640645901314757,
+      "end_us": 1640647513352243,
+      "validation_start_us": 1640647016146618,
+      "test_start_us": 1640647266329410
+    },
+    {
+      "capture": "ph_value",
+      "session": 0,
+      "rows": 759665,
+      "start_us": 1640648077189507,
+      "end_us": 1640652544470536,
+      "validation_start_us": 1640651216494171,
+      "test_start_us": 1640651880392913
+    },
+    {
+      "capture": "heart_rate",
+      "session": 0,
+      "rows": 170435,
+      "start_us": 1640655579986982,
+      "end_us": 1640657417376946,
+      "validation_start_us": 1640656936626676,
+      "test_start_us": 1640657174471375
+    },
+    {
+      "capture": "water_level",
+      "session": 0,
+      "rows": 1807880,
+      "start_us": 1640663297156663,
+      "end_us": 1640665824419964,
+      "validation_start_us": 1640665078464718,
+      "test_start_us": 1640665448475082
+    },
+    {
+      "capture": "water_level",
+      "session": 1,
+      "rows": 494617,
+      "start_us": 1641333459506197,
+      "end_us": 1641334154060928,
+      "validation_start_us": 1641333964575222,
+      "test_start_us": 1641334061201428
+    },
+    {
+      "capture": "ir_receiver",
+      "session": 0,
+      "rows": 1308238,
+      "start_us": 1641340089473535,
+      "end_us": 1641341916754163,
+      "validation_start_us": 1641341369833007,
+      "test_start_us": 1641341638377981
+    },
+    {
+      "capture": "sound_sensor",
+      "session": 0,
+      "rows": 1513318,
+      "start_us": 1641353636369336,
+      "end_us": 1641355573145523,
+      "validation_start_us": 1641354970661004,
+      "test_start_us": 1641355268514613
+    },
+    {
+      "capture": "flame_sensor",
+      "session": 0,
+      "rows": 1070510,
+      "start_us": 1641357724726256,
+      "end_us": 1641359161829999,
+      "validation_start_us": 1641358736268801,
+      "test_start_us": 1641358948777688
+    },
+    {
+      "capture": "modbus",
+      "session": 0,
+      "rows": 3537,
+      "start_us": 1639959767981993,
+      "end_us": 1639960855043322,
+      "validation_start_us": 1639960252037620,
+      "test_start_us": 1639960522455977
+    },
+    {
+      "capture": "modbus",
+      "session": 1,
+      "rows": 155977,
+      "start_us": 1641359649388648,
+      "end_us": 1641363967966722,
+      "validation_start_us": 1641363132840624,
+      "test_start_us": 1641363602939859
+    },
+    {
+      "capture": "soil_moisture",
+      "session": 0,
+      "rows": 1200751,
+      "start_us": 1641368773592934,
+      "end_us": 1641376955711811,
+      "validation_start_us": 1641374889126305,
+      "test_start_us": 1641375921558718
+    },
+    {
+      "capture": "backdoor",
+      "session": 0,
+      "rows": 10807,
+      "start_us": 1638723503150209,
+      "end_us": 1638726075436584,
+      "validation_start_us": 1638725250017332,
+      "test_start_us": 1638725636806085
+    },
+    {
+      "capture": "backdoor",
+      "session": 1,
+      "rows": 14055,
+      "start_us": 1638731675329456,
+      "end_us": 1638734821118175,
+      "validation_start_us": 1638733888839330,
+      "test_start_us": 1638734354408509
+    },
+    {
+      "capture": "ddos_http",
+      "session": 0,
+      "rows": 229022,
+      "start_us": 1637836529350784,
+      "end_us": 1637836801284354,
+      "validation_start_us": 1637836693957916,
+      "test_start_us": 1637836729310122
+    },
+    {
+      "capture": "ddos_icmp",
+      "session": 0,
+      "rows": 2914354,
+      "start_us": 1637792269149462,
+      "end_us": 1637792672823991,
+      "validation_start_us": 1637792565390153,
+      "test_start_us": 1637792626297271
+    },
+    {
+      "capture": "ddos_tcp",
+      "session": 0,
+      "rows": 2020120,
+      "start_us": 1637776957608273,
+      "end_us": 1637777485622962,
+      "validation_start_us": 1637777324821415,
+      "test_start_us": 1637777403205040
+    },
+    {
+      "capture": "ddos_udp",
+      "session": 0,
+      "rows": 3215732,
+      "start_us": 1637792830139612,
+      "end_us": 1637793231047885,
+      "validation_start_us": 1637793104228038,
+      "test_start_us": 1637793167310717
+    },
+    {
+      "capture": "mitm",
+      "session": 0,
+      "rows": 1229,
+      "start_us": 1638035454178322,
+      "end_us": 1638036647816351,
+      "validation_start_us": 1638035949320014,
+      "test_start_us": 1638036066074025
+    },
+    {
+      "capture": "os_fingerprinting",
+      "session": 0,
+      "rows": 1001,
+      "start_us": 1640639670939803,
+      "end_us": 1640640496484355,
+      "validation_start_us": 1640640270441834,
+      "test_start_us": 1640640389505511
+    },
+    {
+      "capture": "password",
+      "session": 0,
+      "rows": 43932,
+      "start_us": 1638578735961572,
+      "end_us": 1638579349916813,
+      "validation_start_us": 1638579168472981,
+      "test_start_us": 1638579260590165
+    },
+    {
+      "capture": "password",
+      "session": 1,
+      "rows": 1009453,
+      "start_us": 1638632932717429,
+      "end_us": 1638647241605080,
+      "validation_start_us": 1638643154823119,
+      "test_start_us": 1638645184144708
+    },
+    {
+      "capture": "port_scanning",
+      "session": 0,
+      "rows": 22564,
+      "start_us": 1637766209475073,
+      "end_us": 1637776209194016,
+      "validation_start_us": 1637773186617633,
+      "test_start_us": 1637774694755773
+    },
+    {
+      "capture": "ransomware",
+      "session": 0,
+      "rows": 2942,
+      "start_us": 1638457327998055,
+      "end_us": 1638459757791001,
+      "validation_start_us": 1638459040782695,
+      "test_start_us": 1638459411815133
+    },
+    {
+      "capture": "ransomware",
+      "session": 1,
+      "rows": 7983,
+      "start_us": 1638568123480946,
+      "end_us": 1638573878441645,
+      "validation_start_us": 1638572168138125,
+      "test_start_us": 1638573018278737
+    },
+    {
+      "capture": "sql_injection",
+      "session": 0,
+      "rows": 51203,
+      "start_us": 1638218118238171,
+      "end_us": 1638218623688520,
+      "validation_start_us": 1638218484753875,
+      "test_start_us": 1638218551872838
+    },
+    {
+      "capture": "uploading",
+      "session": 0,
+      "rows": 37634,
+      "start_us": 1638828512886770,
+      "end_us": 1638829018204631,
+      "validation_start_us": 1638828799697789,
+      "test_start_us": 1638828883556286
+    },
+    {
+      "capture": "vulnerability_scanner",
+      "session": 0,
+      "rows": 145869,
+      "start_us": 1638814928593687,
+      "end_us": 1638816153064127,
+      "validation_start_us": 1638815867538368,
+      "test_start_us": 1638815999444748
+    },
+    {
+      "capture": "xss",
+      "session": 0,
+      "rows": 15915,
+      "start_us": 1638204287438207,
+      "end_us": 1638211994731065,
+      "validation_start_us": 1638209776935490,
+      "test_start_us": 1638210907064713
+    }
+  ],
+  "leave_one_device_out": {
+    "dht11_temperature_humidity": {
+      "train": 1121797,
+      "validation": 270262,
+      "test": 365897,
+      "test_unseen_normal": 100000
+    },
+    "g1006_flame": {
+      "train": 1121325,
+      "validation": 271043,
+      "test": 365588,
+      "test_unseen_normal": 100000
+    },
+    "hcsr04_distance": {
+      "train": 1121282,
+      "validation": 271094,
+      "test": 365580,
+      "test_unseen_normal": 100000
+    },
+    "ir_receiver": {
+      "train": 1121459,
+      "validation": 271019,
+      "test": 365478,
+      "test_unseen_normal": 100000
+    },
+    "lm393_sound": {
+      "train": 1121436,
+      "validation": 270933,
+      "test": 365587,
+      "test_unseen_normal": 100000
+    },
+    "modbus_tcp": {
+      "train": 1120757,
+      "validation": 271252,
+      "test": 365947,
+      "test_unseen_normal": 100000
+    },
+    "ph4502c_ph": {
+      "train": 1121109,
+      "validation": 271246,
+      "test": 365601,
+      "test_unseen_normal": 100000
+    },
+    "pulse_heart_rate": {
+      "train": 1120770,
+      "validation": 271257,
+      "test": 365929,
+      "test_unseen_normal": 100000
+    },
+    "soil_moisture": {
+      "train": 1121202,
+      "validation": 271087,
+      "test": 365667,
+      "test_unseen_normal": 100000
+    },
+    "water_level": {
+      "train": 1121662,
+      "validation": 270806,
+      "test": 365488,
+      "test_unseen_normal": 100000
+    }
+  },
+  "seconds": 53.8
+}

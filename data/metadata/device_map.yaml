@@ -1,0 +1,27 @@
+# Device identity for the realistic dataset (final task 1).
+#
+# Source: Edge-IIoTset paper, Table VI "Statistics of normal instances" (data/external/.../Edge_IIoTset__DatasetFL.pdf),
+# cross-checked against the host pairs observed in each capture (docs/final/01_real_timestamps_device_identity.md §2.2).
+#
+# Rule: every packet is attributed to the registered IoT device on whose network segment it was captured.
+#   - normal captures  -> the sensor named in Table VI
+#   - attack captures  -> all were recorded on the 192.168.0.x segment, against edge server 192.168.0.128
+#                         (the Raspberry Pi edge server of the DHT11 temperature/humidity node), so they are
+#                         attributed to that segment's device. Attacker IPs are recorded as metadata only.
+# Device IDs and IPs are metadata: they are never used as model features.
+
+devices:
+  dht11_temperature_humidity: {capture: temperature_humidity, sensor: DHT11, protocol: MQTT, mqtt_topic: Temperature_and_Humidity, node_ip: 192.168.0.101, edge_server_ip: 192.168.0.128, access_point_ip: 192.168.0.1}
+  hcsr04_distance:            {capture: distance,             sensor: HC-SR04 ultrasonic, protocol: MQTT, mqtt_topic: Distance, node_ip: 192.168.1.101, edge_server_ip: 192.168.1.128, access_point_ip: 192.168.1.1}
+  ph4502c_ph:                 {capture: ph_value,             sensor: PH-4502C pH, protocol: MQTT, mqtt_topic: phValue, node_ip: 192.168.2.194, edge_server_ip: 192.168.2.116, access_point_ip: 192.168.2.1}
+  pulse_heart_rate:           {capture: heart_rate,           sensor: Heart rate (pulse), protocol: MQTT, mqtt_topic: Heart_Rate, node_ip: 192.168.3.18, edge_server_ip: 192.168.3.12, access_point_ip: 192.168.3.1}
+  water_level:                {capture: water_level,          sensor: Water level, protocol: MQTT, mqtt_topic: Water_Level, node_ip: 192.168.4.73, edge_server_ip: 192.168.4.30, access_point_ip: 192.168.4.1}
+  ir_receiver:                {capture: ir_receiver,          sensor: IR receiver, protocol: MQTT, mqtt_topic: IR_Receiver, node_ip: 192.168.5.47, edge_server_ip: 192.168.5.46, access_point_ip: 192.168.5.1}
+  lm393_sound:                {capture: sound_sensor,         sensor: LM393 sound, protocol: MQTT, mqtt_topic: Sound_Sensor, node_ip: 192.168.6.56, edge_server_ip: 192.168.6.100, access_point_ip: 192.168.6.1}
+  g1006_flame:                {capture: flame_sensor,         sensor: G1006 flame, protocol: MQTT, mqtt_topic: Flame_Sensor, node_ip: 192.168.7.62, edge_server_ip: 192.168.7.55, access_point_ip: 192.168.7.1}
+  modbus_tcp:                 {capture: modbus,               sensor: Modbus/TCP server, protocol: Modbus/TCP, mqtt_topic: Modbus_topic, node_ip: [192.168.0.101, 192.168.7.62], edge_server_ip: [192.168.0.128, 192.168.7.55], access_point_ip: [192.168.0.1, 192.168.7.1]}
+  soil_moisture:              {capture: soil_moisture,        sensor: Soil moisture v1.2, protocol: MQTT, mqtt_topic: Soil_Moisture, node_ip: 192.168.8.163, edge_server_ip: 192.168.8.104, access_point_ip: 192.168.8.1}
+
+# Attack captures -> device on whose segment they were recorded.
+attack_segment_device: dht11_temperature_humidity
+attacker_ip: 192.168.0.170          # Kali Linux machine (Table VII of the paper); DDoS floods also spoof random sources

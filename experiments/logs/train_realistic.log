@@ -1,0 +1,18 @@
+== real_time
+training on 300,000 rows of the real_time train split
+DEVICE decision_tree      binary     f1_macro=0.8519
+EDGE   random_forest      binary     f1_macro=0.9503
+FOG    random_forest      multiclass f1_macro=0.8894
+CLOUD  random_forest      multiclass f1_macro=0.8794 fit=8s
+CLOUD  gradient_boosting  multiclass f1_macro=0.8023 fit=7s
+CLOUD  mlp                multiclass f1_macro=0.6419 fit=76s
+cloud deployed: cloud-random_forest-f46afbd1f848
+== real_random
+training on 300,000 rows of the real_random train split
+DEVICE decision_tree      binary     f1_macro=0.8419
+EDGE   random_forest      binary     f1_macro=0.9536
+FOG    random_forest      multiclass f1_macro=0.8981
+CLOUD  random_forest      multiclass f1_macro=0.9014 fit=9s
+CLOUD  gradient_boosting  multiclass f1_macro=0.7946 fit=7s
+CLOUD  mlp                multiclass f1_macro=0.6568 fit=70s
+cloud deployed: cloud-random_forest-8d2fffdf40ba

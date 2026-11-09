@@ -1,0 +1,4 @@
+mode,throughput_eps
+baseline,12488.8
+batch,1902.3
+per_event,37.7

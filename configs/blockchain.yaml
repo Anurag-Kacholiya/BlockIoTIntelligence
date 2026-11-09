@@ -8,6 +8,22 @@ contract:
   address: null
 accounts:
   mnemonic: "test test test test test test test test test test test junk"   # Anvil's public dev mnemonic — never use on a real network
+# A node that stops answering (ADR §14.2 "retry + local queue + eventual commit"; fault-tolerance add-on): the client
+# fails over to the next live node of the network and resends every transaction not yet confirmed.
 retry:
-  attempts: 5
-  backoff_seconds: 0.5
+  attempts: 5                  # rounds over all nodes before giving up
+  backoff_seconds: 0.5         # pause between rounds
+  receipt_timeout_s: 600       # long enough to wait out a halted chain (no quorum) and QBFT's round-change backoff
+
+# Multi-node private network (final task 2): Hyperledger Besu validators reaching QBFT consensus, one process each.
+# scripts/setup_besu.py installs the pinned release into tools/besu after checking its published SHA-256.
+qbft:
+  besu_version: 26.10.0
+  besu_sha256: 927429dd887aca3deb09196c42c88f883258b97d3b9269a12e0204f00d8a5d96
+  validators: 4                # BFT: n >= 3f + 1, so 4 validators keep going with f = 1 faulty
+  block_period_s: 1            # one block per second (QBFT's shortest whole-second period)
+  request_timeout_s: 4         # a round that does not finish in time moves to a new proposer
+  chain_id: 1337
+  gas_limit: 300000000         # same block gas limit as the Anvil runs
+  jvm_heap: 1g                 # per node
+  tx_pool_max_future_by_sender: 10000   # Besu default 200 < the 256 transactions one micro-batch sends per account

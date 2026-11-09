@@ -14,14 +14,17 @@ dependencies = [
     "psutil==7.0.0",
     "requests==2.32.5",
     "joblib==1.5.2",
+    "threadpoolctl==3.5.0",   # the gateway's forecaster predicts on one thread (final task 3)
 ]
 
 [project.optional-dependencies]
 dev = ["pytest==8.4.2", "ruff==0.12.0", "pypdf==6.16.2"]
 # Added in the phases that need them (ADR §10): blockchain (Phase 2), transport (Phase 7), dashboard (Phase 8).
-blockchain = ["web3", "py-solc-x"]
+# coincurve: native secp256k1 for locally signed transactions (multi-node chain, final task 2): 0.16 vs 2.5 ms each.
+blockchain = ["web3", "py-solc-x", "coincurve==21.0.0"]
 transport = ["paho-mqtt", "fastapi", "uvicorn", "httpx"]
 dashboard = ["streamlit"]
+figures = ["matplotlib==3.10.6"]   # scripts/make_figures.py
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

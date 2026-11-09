@@ -1,0 +1,40 @@
+{
+  "model_id": "device-decision_tree-c16091d72e51",
+  "layer": 0,
+  "family": "decision_tree",
+  "model_hash": "sha256:c16091d72e51bc01c54a6a3f1a03014471c8db15a1441a9d484657be336440ac",
+  "training_data_hash": "sha256:ff00d381b715991fbc7e7bff5478da385f85688bede723eb8ecb3c649496d641",
+  "feature_schema_hash": "sha256:bd9397a740e478608841fdd4648b8266c46cf9a8725e600aabbee4ede761929d",
+  "hyperparameters": {
+    "max_depth": 8
+  },
+  "framework_version": "scikit-learn 1.7.2",
+  "metrics": {
+    "accuracy": 0.8552206542274745,
+    "precision_macro": 0.8659930846075263,
+    "recall_macro": 0.8488029485244268,
+    "f1_macro": 0.851882412035373,
+    "f1_weighted": 0.8534905363824439,
+    "support": 286353.0,
+    "roc_auc": 0.92106718523407,
+    "fit_seconds": 0.09111229190602899,
+    "validation_predict_seconds": 0.07259320793673396
+  },
+  "trained_at": "2026-10-28T10:08:58.093464Z",
+  "features": [
+    "tcp.len",
+    "tcp.flags",
+    "tcp.flags.ack",
+    "tcp.connection.syn",
+    "tcp.connection.synack",
+    "tcp.connection.fin",
+    "tcp.connection.rst",
+    "udp.time_delta",
+    "icmp.seq_le",
+    "arp.opcode",
+    "arp.hw.size",
+    "mqtt.len",
+    "mbtcp.len"
+  ],
+  "artifact": "device-decision_tree-c16091d72e51.joblib"
+}

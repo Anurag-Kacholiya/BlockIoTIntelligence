@@ -1,0 +1,16 @@
+mode,stage,ms_per_event,cpu_ms_per_event
+baseline,batch_end_to_end,0.0744,0.0
+baseline,cloud,0.0306,0.0305
+baseline,device,0.003,0.003
+baseline,edge,0.0197,0.0196
+baseline,fog,0.0209,0.0208
+batch,batch_end_to_end,0.5201,0.0
+batch,cloud,0.0686,0.0461
+batch,device,0.1119,0.093
+batch,edge,0.2493,0.2096
+batch,fog,0.0901,0.0724
+per_event,batch_end_to_end,26.5442,0.0
+per_event,cloud,0.1047,0.0499
+per_event,device,11.3791,2.5172
+per_event,edge,14.9222,5.2878
+per_event,fog,0.138,0.0745

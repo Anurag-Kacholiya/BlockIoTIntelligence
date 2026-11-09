@@ -1,0 +1,27 @@
+temperature_humidity   labelled=1,629,749 after_dedup=1,400,505 sampled=100,000
+distance               labelled=1,143,948 after_dedup=  943,050 sampled=100,000
+ph_value               labelled=  759,665 after_dedup=  598,629 sampled=100,000
+heart_rate             labelled=  170,435 after_dedup=  139,418 sampled=100,000
+water_level            labelled=2,302,497 after_dedup=1,844,871 sampled=100,000
+ir_receiver            labelled=1,308,238 after_dedup=1,074,749 sampled=100,000
+sound_sensor           labelled=1,513,318 after_dedup=1,231,267 sampled=100,000
+flame_sensor           labelled=1,070,510 after_dedup=  877,602 sampled=100,000
+modbus                 labelled=  159,514 after_dedup=  158,197 sampled=100,000
+soil_moisture          labelled=1,200,751 after_dedup=  932,181 sampled=100,000
+backdoor               labelled=   24,862 after_dedup=   24,032 sampled= 24,032
+ddos_http              labelled=  229,022 after_dedup=  214,680 sampled=100,000
+ddos_icmp              labelled=2,914,354 after_dedup=  346,904 sampled=100,000
+ddos_tcp               labelled=2,020,120 after_dedup=2,018,945 sampled=100,000
+ddos_udp               labelled=3,215,732 after_dedup=3,215,516 sampled=100,000
+mitm                   labelled=    1,229 after_dedup=      414 sampled=    414
+os_fingerprinting      labelled=    1,001 after_dedup=      860 sampled=    860
+password               labelled=1,053,385 after_dedup=1,020,417 sampled=100,000
+port_scanning          labelled=   22,564 after_dedup=   19,983 sampled= 19,983
+ransomware             labelled=   10,925 after_dedup=    9,695 sampled=  9,695
+sql_injection          labelled=   51,203 after_dedup=   50,894 sampled= 50,894
+uploading              labelled=   37,634 after_dedup=   36,998 sampled= 36,998
+vulnerability_scanner  labelled=  145,869 after_dedup=  145,552 sampled=100,000
+xss                    labelled=   15,915 after_dedup=   15,080 sampled= 15,080
+real_random: {'train': 1191264, 'validation': 255271, 'test': 255272}  overlap={'validation': 5717, 'test': 5650}
+real_time: {'train': 1190684, 'validation': 286353, 'test': 280919}  overlap={'validation': 23630, 'test': 22628}
+canonical rows=1,757,956 features=41 constant_dropped=['icmp.unused', 'http.tls_port', 'mqtt.conack.flags', 'mqtt.msg_decoded_as'] (53.8s)

@@ -1,0 +1,50 @@
+dht11_temperature_humidity   device unseen FAR=0.1864 seen FAR=0.0947 attack DR=0.7500
+dht11_temperature_humidity   edge   unseen FAR=0.1659 seen FAR=0.0792 attack DR=0.9363
+dht11_temperature_humidity   fog    unseen FAR=0.1181 seen FAR=0.0339 attack DR=0.8989
+dht11_temperature_humidity   cloud  unseen FAR=0.1205 seen FAR=0.0392 attack DR=0.8999
+  fold dht11_temperature_humidity: 36s
+g1006_flame                  device unseen FAR=0.0599 seen FAR=0.0888 attack DR=0.7486
+g1006_flame                  edge   unseen FAR=0.0469 seen FAR=0.0761 attack DR=0.9434
+g1006_flame                  fog    unseen FAR=0.0005 seen FAR=0.0225 attack DR=0.9011
+g1006_flame                  cloud  unseen FAR=0.0015 seen FAR=0.0233 attack DR=0.9012
+  fold g1006_flame: 33s
+hcsr04_distance              device unseen FAR=0.0579 seen FAR=0.0894 attack DR=0.7486
+hcsr04_distance              edge   unseen FAR=0.0375 seen FAR=0.0656 attack DR=0.9363
+hcsr04_distance              fog    unseen FAR=0.0005 seen FAR=0.0266 attack DR=0.9015
+hcsr04_distance              cloud  unseen FAR=0.0013 seen FAR=0.0254 attack DR=0.9024
+  fold hcsr04_distance: 34s
+ir_receiver                  device unseen FAR=0.0560 seen FAR=0.0899 attack DR=0.7487
+ir_receiver                  edge   unseen FAR=0.0411 seen FAR=0.0706 attack DR=0.9421
+ir_receiver                  fog    unseen FAR=0.0003 seen FAR=0.0297 attack DR=0.9005
+ir_receiver                  cloud  unseen FAR=0.0008 seen FAR=0.0262 attack DR=0.9014
+  fold ir_receiver: 35s
+lm393_sound                  device unseen FAR=0.0555 seen FAR=0.0889 attack DR=0.7485
+lm393_sound                  edge   unseen FAR=0.0364 seen FAR=0.0648 attack DR=0.9368
+lm393_sound                  fog    unseen FAR=0.0002 seen FAR=0.0255 attack DR=0.9008
+lm393_sound                  cloud  unseen FAR=0.0013 seen FAR=0.0268 attack DR=0.9025
+  fold lm393_sound: 35s
+modbus_tcp                   device unseen FAR=0.6328 seen FAR=0.0695 attack DR=0.7486
+modbus_tcp                   edge   unseen FAR=0.3620 seen FAR=0.0092 attack DR=0.9079
+modbus_tcp                   fog    unseen FAR=0.1872 seen FAR=0.0025 attack DR=0.9013
+modbus_tcp                   cloud  unseen FAR=0.2023 seen FAR=0.0025 attack DR=0.9017
+  fold modbus_tcp: 34s
+ph4502c_ph                   device unseen FAR=0.0644 seen FAR=0.0891 attack DR=0.7486
+ph4502c_ph                   edge   unseen FAR=0.0499 seen FAR=0.0809 attack DR=0.9455
+ph4502c_ph                   fog    unseen FAR=0.0085 seen FAR=0.0244 attack DR=0.9015
+ph4502c_ph                   cloud  unseen FAR=0.0091 seen FAR=0.0259 attack DR=0.9023
+  fold ph4502c_ph: 35s
+pulse_heart_rate             device unseen FAR=0.0721 seen FAR=0.0889 attack DR=0.7487
+pulse_heart_rate             edge   unseen FAR=0.0619 seen FAR=0.0853 attack DR=0.9507
+pulse_heart_rate             fog    unseen FAR=0.0004 seen FAR=0.0275 attack DR=0.8990
+pulse_heart_rate             cloud  unseen FAR=0.0011 seen FAR=0.0290 attack DR=0.8993
+  fold pulse_heart_rate: 36s
+soil_moisture                device unseen FAR=0.0587 seen FAR=0.0892 attack DR=0.7486
+soil_moisture                edge   unseen FAR=0.0426 seen FAR=0.0778 attack DR=0.9413
+soil_moisture                fog    unseen FAR=0.0005 seen FAR=0.0206 attack DR=0.8999
+soil_moisture                cloud  unseen FAR=0.0013 seen FAR=0.0268 attack DR=0.9010
+  fold soil_moisture: 34s
+water_level                  device unseen FAR=0.0477 seen FAR=0.0895 attack DR=0.7485
+water_level                  edge   unseen FAR=0.0327 seen FAR=0.0719 attack DR=0.9385
+water_level                  fog    unseen FAR=0.0004 seen FAR=0.0279 attack DR=0.9015
+water_level                  cloud  unseen FAR=0.0010 seen FAR=0.0268 attack DR=0.9023
+  fold water_level: 36s
