@@ -401,4 +401,6 @@ Figure 04 (task 2 version), table `security.csv`.
   1. ~~the fault-tolerance add-on~~: done, see [02a_fault_tolerance.md](02a_fault_tolerance.md). With 1 of 4
      validators down the chain continued at 0.4 blocks/s; with 2 of 4 it halted and resumed 64.8 s after the quorum
      returned. No message was lost in either case;
-  2. task 3 (RQ-11), evaluated on this network (§10.7).
+  2. ~~task 3 (RQ-11), evaluated on this network (§10.7)~~: done, see
+     [03_ai_driven_blockchain.md](03_ai_driven_blockchain.md). AI-scheduled commits cut gas per message at 500
+     devices by 22.5%, and the growth from 10 to 500 devices from 6.2× to 4.8×.

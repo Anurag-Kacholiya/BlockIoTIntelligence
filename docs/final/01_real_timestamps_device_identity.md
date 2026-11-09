@@ -523,7 +523,8 @@ cross-edge replay 65% (mid-term 53%, by sequence numbers only); and during imper
 - **The scaling drop remains:** batch throughput falls 15× from 10 to 500 devices (mid-term 20×). Each device gets
   its own Merkle commit per 256-message window, so with many devices every commit covers fewer messages. Real
   traffic is uneven, so dataset v2 is 1.3–2.3× faster at every point, but the shape is a property of per-device
-  batching, not of the data. Final task 3 (AI-chosen batching) addresses it.
+  batching, not of the data. Final task 3 (AI-chosen batching) addresses it: see
+  [03_ai_driven_blockchain.md](03_ai_driven_blockchain.md).
 - These runs use one Anvil node that mines every transaction at once. They are the single-node reference for
   final task 2 (4 QBFT validators, real block time). The same scaling on QBFT is compared with them in
   [02_multi_node_blockchain.md §10.7](02_multi_node_blockchain.md#107-t24-scaling-single-node-vs-qbft): batch

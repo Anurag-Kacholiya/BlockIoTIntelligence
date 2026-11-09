@@ -18,29 +18,32 @@ from src.common.config import active_view, load_config, resolve
 from src.common.crypto import hash_file, hash_object
 from src.common.schemas import Layer, ModelMetadata
 
+FORECASTER = "forecaster"   # the gateway's traffic forecaster (final task 3), a device-layer model of its own kind
+
 
 class ModelIntegrityError(RuntimeError):
     pass
 
 
-def layer_dir(layer: Layer) -> Path:
+def layer_dir(layer: Layer, kind: str = "") -> Path:
     """models/<layer> for the mid-term view; models/<view>/<layer> for any other view, so training on one view
-    never replaces another view's deployed models."""
+    never replaces another view's deployed models. A model `kind` other than the layer's classifier gets its own
+    directory, <layer>_<kind>."""
     root = resolve(load_config("base")["paths"]["models"])
     view = active_view()
     if view != load_config("datasets")["edge_iiotset"]["primary"]:
         root = root / view
-    return root / layer.name.lower()
+    return root / (layer.name.lower() + (f"_{kind}" if kind else ""))
 
 
 def save_model(model, *, layer: Layer, family: str, features: list[str], training_data_hash: str,
-               hyperparameters: dict, metrics: dict[str, float], deploy: bool = True) -> ModelMetadata:
-    directory = layer_dir(layer)
+               hyperparameters: dict, metrics: dict[str, float], deploy: bool = True, kind: str = "") -> ModelMetadata:
+    directory = layer_dir(layer, kind)
     directory.mkdir(parents=True, exist_ok=True)
     tmp = directory / f".{family}.joblib.tmp"
     joblib.dump(model, tmp)
     model_hash = hash_file(tmp)
-    model_id = f"{layer.name.lower()}-{family}-{model_hash.removeprefix('sha256:')[:12]}"
+    model_id = f"{layer.name.lower()}{f'-{kind}' if kind else ''}-{family}-{model_hash.removeprefix('sha256:')[:12]}"
     artifact = directory / f"{model_id}.joblib"
     tmp.replace(artifact)
 
@@ -63,9 +66,9 @@ def save_model(model, *, layer: Layer, family: str, features: list[str], trainin
     return meta
 
 
-def load_model(layer: Layer, model_id: str | None = None) -> tuple[object, dict]:
+def load_model(layer: Layer, model_id: str | None = None, kind: str = "") -> tuple[object, dict]:
     """Load the deployed (or named) model for a layer after verifying its fingerprint."""
-    directory = layer_dir(layer)
+    directory = layer_dir(layer, kind)
     model_id = model_id or json.loads((directory / "current.json").read_text())["model_id"]
     record = json.loads((directory / f"{model_id}.json").read_text())
     artifact = directory / record["artifact"]

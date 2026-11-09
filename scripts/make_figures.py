@@ -4,6 +4,7 @@
   python scripts/make_figures.py --set final_task1   ->  docs/final/task1/{figures,tables}/    (dataset v2)
   python scripts/make_figures.py --set final_task2   ->  docs/final/task2/{figures,tables}/    (multi-node chain)
   python scripts/make_figures.py --set final_faults  ->  docs/final/faults/{figures,tables}/   (fault tolerance)
+  python scripts/make_figures.py --set final_task3   ->  docs/final/task3/{figures,tables}/    (AI-driven blockchain)
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ import pandas as pd  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "experiments" / "results"
+sys.path.insert(0, str(ROOT))           # final task 3 re-derives each run's waits with the project's scheduler code
 
 # Each set reads the same kinds of results from different files and words its notes for its data.
 SETS = {
@@ -66,6 +68,14 @@ SETS = {
         "out": ROOT / "docs" / "final" / "faults",
         "runs": RESULTS / "final_faults" / "runs.jsonl",
         "rows": RESULTS / "final_faults" / "rows",
+    },
+    "final_task3": {
+        "out": ROOT / "docs" / "final" / "task3",
+        "runs": RESULTS / "final_task3" / "runs.jsonl",
+        "rows": RESULTS / "final_task3" / "rows",
+        "simulation": RESULTS / "final_task3" / "simulation.csv",
+        "forecast_quality": RESULTS / "final_task3" / "forecast_quality.csv",
+        "forecaster": ROOT / "models" / "real_time" / "device_forecaster",
     },
 }
 
@@ -758,6 +768,401 @@ def faults(s: dict) -> None:
     fig_fault_blocks(runs)
 
 
+# ---- final task 3: AI-driven blockchain (when the gateway commits each device's Merkle batch) --------------------
+
+T3_COLOR = {"fixed": INK2, "interval": "#a3a29d", "rule": SLOTS[1], "forecast": SLOTS[0], "rate": SLOTS[3],
+            "oracle": SLOTS[2]}
+T3_LABEL = {"fixed": "Fixed: one root per device per round (task 2)", "interval": "Fixed interval: every k-th round",
+            "rule": "Rule: hold every small batch", "forecast": "AI: hold when the forecast says it pays",
+            "rate": "Poisson-rate forecast (no learning)", "oracle": "Perfect foresight (reference)"}
+T3_SHORT = {"fixed": "Fixed", "interval": "Interval", "rule": "Rule", "forecast": "AI", "oracle": "Perfect foresight"}
+T3_LIVE = ["fixed", "rule", "forecast", "oracle"]
+PER_EVENT_GAS_T2 = 161_618              # task 2 §10.7: per-event gas per message at every device count (QBFT)
+
+
+def _t3_setting(spec: dict, default: dict) -> str:
+    """Short name of a live run's setting: 'AI', 'AI, N = 16', 'Rule, H = 2', 'AI, attacks never held', ..."""
+    name = T3_SHORT[spec["policy"]] + (f" {spec['every']}" if spec["policy"] == "interval" else "")
+    if spec["policy"] in ("fixed", "interval"):
+        return name
+    extra = [f"{label} = {spec[k]:g}" for k, label in (("hold_rounds", "H"), ("break_even", "N")) if spec[k] != default[k]]
+    if spec.get("protect_suspicious"):
+        extra.append("attacks never held")
+    return ", ".join([name, *extra])
+
+
+def task3_table(runs: pd.DataFrame, s: dict) -> pd.DataFrame:
+    """One row per live run, with three checks: predictions identical to the fixed run (same chain, devices, seed),
+    live roots equal to the offline simulation of the same setting, and the usual run health."""
+    from src.common.config import load_config
+
+    default = load_config("experiments")["suites"]["final_task3"]["policy"]
+    sim = pd.read_csv(s["simulation"])
+    sim = sim[sim["rows"] == runs.iloc[0].events_in]
+    rows = []
+    for _, r in runs.iterrows():
+        t, spec, ch = r.task3, r.task3["commit_policy"], r.chain
+        n, cs, lat = r.events_processed, r.commit_schedule, r.message_latency_ms
+        cloud = next(a for a in r.accuracy if (a["layer"], a["task"]) == ("cloud", "multiclass"))
+        merkle = ch["device_commit"]["gas_total"] + ch["edge_processed"]["gas_total"]
+        match = sim[(sim.devices == r.topology["devices"]) & (sim.label == spec["policy"])]
+        if spec["policy"] == "interval":
+            match = match[match.every == spec["every"]]
+        elif spec["policy"] != "fixed":
+            match = match[(match.hold_rounds == spec["hold_rounds"]) & (match.break_even == spec["break_even"])
+                          & (match.protect_suspicious == spec["protect_suspicious"])]
+        rows.append({
+            "key": t["key"], "group": t["group"], "chain": "qbft_1s" if t["chain"][0] == "qbft" else "anvil_automine",
+            "policy": spec["policy"], "setting": _t3_setting(spec, default), "seed": t["seed"],
+            "devices": r.topology["devices"], "roots": ch["device_commit"]["tx_count"],
+            "offline_roots": int(match.roots.iloc[0]) if len(match) == 1 else np.nan,
+            "processing_records": ch["edge_processed"]["tx_count"], "messages_per_root": n / ch["device_commit"]["tx_count"],
+            "merkle_gas_per_msg": merkle / n,
+            "gas_per_msg": sum(v["gas_total"] for k, v in ch.items()
+                               if k in ("device_commit", "edge_processed", "fog_alert_audit", "cloud_inference_record")) / n,
+            "latency_mean_s": lat["all"]["mean_ms"] / 1000, "latency_p95_s": lat["all"]["p95_ms"] / 1000,
+            "attack_latency_mean_s": lat["attack"]["mean_ms"] / 1000, "normal_latency_mean_s": lat["normal"]["mean_ms"] / 1000,
+            "throughput_eps": r.throughput_eps, "held_rounds_per_message": cs["held_rounds_per_message"],
+            "holds": cs["holds"], "merged_roots": cs["merged_roots"], "wasted_holds": cs["wasted_holds"],
+            "commit_latency_ms": ch["device_commit"]["latency_mean_ms"], "alerts": r.alerts,
+            "failed": sum(v["failed"] for v in ch.values()), "rejected": r.events_rejected, "processed": n,
+            "consistent": r.chain_network.get("consensus", {}).get("consistent"),
+            "cloud_f1_macro": cloud["f1_macro"], "node_cpu_s": r.resources.get("node_cpu_s"), "wall_s": r.resources["wall_s"],
+        })
+    df = pd.DataFrame(rows)
+    fixed = {(x.chain, x.devices, x.seed): x.key for x in df[df.policy == "fixed"].itertuples()}
+
+    def identical(x) -> float:
+        ref = pd.read_parquet(s["rows"] / f"{fixed[(x.chain, x.devices, x.seed)]}.parquet").set_index("event_id")
+        mine = pd.read_parquet(s["rows"] / f"{x.key}.parquet").set_index("event_id")
+        if set(ref.index) != set(mine.index):
+            return 0.0
+        return float((mine.loc[ref.index, PRED_COLUMNS] == ref[PRED_COLUMNS]).all(axis=1).mean())
+
+    df["predictions_identical"] = [identical(x) for x in df.itertuples()]
+    waits = _t3_latency_by_wait(runs, s)
+    df = df.merge(waits, on="key", how="left")
+    ref = df[df.policy == "fixed"].set_index(["chain", "devices", "seed"])
+    idx = pd.MultiIndex.from_frame(df[["chain", "devices", "seed"]])
+    df["roots_vs_fixed"] = df.roots.to_numpy() / ref.roots.reindex(idx).to_numpy()
+    df["gas_vs_fixed"] = df.gas_per_msg.to_numpy() / ref.gas_per_msg.reindex(idx).to_numpy()
+    df["latency_added_s"] = df.latency_mean_s.to_numpy() - ref.latency_mean_s.reindex(idx).to_numpy()
+    return df
+
+
+def _t3_latency_by_wait(runs: pd.DataFrame, s: dict) -> pd.DataFrame:
+    """Each run's message latency split by how many rounds the message waited at the gateway. The waits are replayed
+    offline with the run's own policy (the same decisions: live roots = offline roots) and joined on the event ids,
+    which are fixed per seed."""
+    import os
+    import uuid
+
+    os.environ["BLOCKIOT_VIEW"] = "real_time"
+    from src.device.commit_policy import CommitScheduler, TrafficForecaster, future_rounds, make_policy, timing_events
+    from src.device.simulator import RealtimeReplay
+    from src.pipeline import load_replay_rows
+
+    replay, _ = load_replay_rows(int(runs.iloc[0].events_in))
+    forecaster = TrafficForecaster()
+    out = []
+    for _, r in runs.iterrows():
+        t = r.task3
+        sim = RealtimeReplay(replay, seed=t["seed"], replicas=t["replicas"])
+        batch = r.topology["batch_size"]
+        policy = make_policy(dict(t["commit_policy"]), forecaster=forecaster, future=future_rounds(sim.device_of, batch))
+        ns = uuid.UUID(int=t["seed"])
+        index = {str(uuid.uuid5(ns, str(i))): i for i in range(len(sim))}
+        rows = pd.read_parquet(s["rows"] / f"{t['key']}.parquet")
+        flags = np.zeros(len(sim), dtype=int)            # the device model's flag, as the live scheduler saw it
+        flags[rows.event_id.map(index).to_numpy()] = rows.device_pred.astype(int).to_numpy()
+        scheduler, wait = CommitScheduler(policy, sim.device_ids), np.zeros(len(sim))
+        n_rounds = -(-len(sim) // batch)
+        for k, events in enumerate(timing_events(sim, batch, flags)):
+            for e in scheduler.step(events, final=k == n_rounds - 1):
+                wait[e["i"]] = k - e["i"] // batch
+        if scheduler.stats["roots"] != r.chain["device_commit"]["tx_count"]:
+            raise ValueError(f"{t['key']}: replayed decisions differ from the live run")
+        w = rows.event_id.map(index).map(lambda i, wait=wait: wait[i])
+        out.append({"key": t["key"], "messages_waited": int((w > 0).sum()),
+                    "latency_not_waited_s": rows.e2e_ms[w == 0].mean() / 1000,
+                    "latency_waited_1_s": rows.e2e_ms[w == 1].mean() / 1000 if (w == 1).any() else np.nan,
+                    "latency_waited_2_s": rows.e2e_ms[w == 2].mean() / 1000 if (w == 2).any() else np.nan,
+                    "round_s": r.latency_ms["batch_end_to_end"]["mean_ms"] / 1000})
+    return pd.DataFrame(out)
+
+
+def _t3_scaling(df: pd.DataFrame, chain: str = "qbft_1s") -> pd.DataFrame:
+    d = df[(df.group == "scaling") & (df.chain == chain)] if chain == "qbft_1s" else df[df.chain == chain]
+    return d.sort_values("devices")
+
+
+def _end_labels(ax, x, y, fmt: str, dy: int = 0) -> None:
+    ax.annotate(fmt.format(y.iloc[-1]), (x.iloc[-1], y.iloc[-1]), xytext=(7, dy), textcoords="offset points",
+                va="center", fontsize=8.5, color=INK2)
+
+
+def _devices_axis(ax, devices) -> None:
+    ax.set_xscale("log")
+    ax.set_xticks(devices, [str(d) for d in devices])
+    ax.minorticks_off()
+    ax.set_xlabel("IoT devices (each of the 10 real devices split over k devices)")
+
+
+def fig_t3_gas(df: pd.DataFrame) -> None:
+    d = _t3_scaling(df)
+    fig, ax = plt.subplots(figsize=(9, 4.8))
+    # the rule and perfect foresight commit exactly the same roots (so the same gas): the rule is dashed on top
+    for policy in ("fixed", "oracle", "forecast", "rule"):
+        p = d[d.policy == policy]
+        dashed = policy == "rule"
+        ax.plot(p.devices, p.gas_per_msg / 1000, marker="o", color=T3_COLOR[policy], label=T3_LABEL[policy],
+                ls=(0, (4, 3)) if dashed else "-", mfc="none" if dashed else T3_COLOR[policy],
+                markeredgecolor=T3_COLOR[policy] if dashed else SURFACE, markeredgewidth=1.5 if dashed else 2,
+                zorder=4 if dashed else 3 if policy == "forecast" else 2)
+    for policy, label, dy in (("fixed", "{:.1f}k", 0), ("forecast", "{:.1f}k", 6),
+                              ("rule", "{:.1f}k: rule and perfect foresight", -8)):
+        p = d[d.policy == policy]
+        _end_labels(ax, p.devices, p.gas_per_msg / 1000, label, dy)
+    ax.axhline(PER_EVENT_GAS_T2 / 1000, color=INK2, ls=":", lw=1.2)
+    ax.annotate(f"Per-event commits (task 2): {PER_EVENT_GAS_T2 / 1000:.1f}k", (10, PER_EVENT_GAS_T2 / 1000),
+                xytext=(0, -12), textcoords="offset points", fontsize=8.5, color=INK2)
+    _devices_axis(ax, sorted(d.devices.unique()))
+    ax.set_xlim(8, 1400)
+    ax.set_ylim(0, None)
+    ax.set_ylabel("Gas per message (thousands)")
+    ax.set_title("Gas per message vs number of devices: fixed batching vs AI-scheduled commits")
+    ax.set_title(ax.get_title(loc="left"), loc="left", pad=48)
+    handles, labels = ax.get_legend_handles_labels()
+    order = [labels.index(T3_LABEL[p]) for p in T3_LIVE]
+    ax.legend([handles[i] for i in order], [labels[i] for i in order], loc="lower left", bbox_to_anchor=(0, 1.0),
+              ncol=2, borderaxespad=0.3, handlelength=2.4)
+    save(fig, "19_gas_per_message_vs_devices",
+         "Task 2's scaling workload: 5,000 realistic-replay messages per point (the same messages and timing), 2 edges,"
+         " 1 fog, 4 QBFT validators at 1 block/s. Rule, AI and perfect foresight: a batch waits at most one extra"
+         " round (H = 1); one root's gas is worth delaying 4 messages by one round (N = 4). Gas of every event-path"
+         " write (commitments, processing records, alert audits, inference records).")
+
+
+def fig_t3_latency(df: pd.DataFrame) -> None:
+    d = _t3_scaling(df)
+    fig, ax = plt.subplots(figsize=(9, 4.8))
+    offsets = {"fixed": -6, "rule": 6, "forecast": 0, "oracle": -12}
+    for policy in T3_LIVE:
+        p = d[d.policy == policy]
+        ax.plot(p.devices, p.latency_mean_s, marker="o", color=T3_COLOR[policy], label=T3_LABEL[policy],
+                markeredgecolor=SURFACE, markeredgewidth=2, zorder=3 if policy == "forecast" else 2)
+        _end_labels(ax, p.devices, p.latency_mean_s, "{:.2f} s", offsets[policy])
+    _devices_axis(ax, sorted(d.devices.unique()))
+    ax.set_xlim(8, 800)
+    ax.set_ylim(0, None)
+    ax.set_ylabel("Message latency, mean (s)")
+    ax.set_title("What holding batches costs: message latency vs number of devices")
+    ax.set_title(ax.get_title(loc="left"), loc="left", pad=48)
+    ax.legend(loc="lower left", bbox_to_anchor=(0, 1.0), ncol=2, borderaxespad=0.3, handlelength=1.6)
+    save(fig, "20_latency_vs_devices",
+         "Same runs as figure 19. Per message, from its arrival at the device layer to its cloud result, including"
+         " the rounds it waited at the gateway.")
+
+
+def fig_t3_tradeoff(sim: pd.DataFrame, df: pd.DataFrame, devices: int = 500) -> None:
+    d = sim[(sim["rows"] == df.processed.iloc[0]) & (sim.devices == devices)].copy()
+    fixed_roots = d[d.label == "fixed"].roots.iloc[0]
+    d["ratio"] = d.roots / fixed_roots
+    live = df[(df.chain == "qbft_1s") & (df.devices == devices) & (df.seed == df.seed.min())]
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+    for ax, h in zip(axes, (1, 2), strict=True):
+        for label in ("rule", "rate", "forecast", "oracle"):
+            p = d[(d.label == label) & (d.hold_rounds == h) & (d.protect_suspicious == False)]  # noqa: E712
+            p = p.sort_values("break_even")
+            x = np.concatenate([[0.0], p.held_rounds_per_message])
+            y = np.concatenate([[1.0], p.ratio])
+            ax.plot(x, y, marker="o", ms=5, color=T3_COLOR[label], label=T3_LABEL[label], markeredgecolor=SURFACE,
+                    markeredgewidth=1.2, zorder=3 if label == "forecast" else 2)
+            if label == "forecast":
+                for _, row in p[p.break_even.isin([1.5, 4, 16])].iterrows():
+                    ax.annotate(f"N = {row.break_even:g}", (row.held_rounds_per_message, row.ratio), xytext=(5, -13),
+                                textcoords="offset points", fontsize=8, color=SLOTS[0])
+        iv = d[(d.label == "interval") & (d.every == h + 1)]
+        ax.scatter(iv.held_rounds_per_message, iv.ratio, marker="s", s=60, color=T3_COLOR["interval"], zorder=3,
+                   edgecolors=SURFACE, linewidths=1.5, label=f"{T3_LABEL['interval']} (k = H + 1)")
+        lv = live[(live.policy.isin(["rule", "forecast", "oracle", "interval"]))]
+        lv = lv[lv.key.str.contains(f"hold_rounds{h}") | (lv.policy == "interval") & (h == 1)]
+        lv = lv[~lv.key.str.contains("protect_suspiciousTrue")]
+        ax.scatter(lv.held_rounds_per_message, lv.roots_vs_fixed, s=110, facecolors="none", edgecolors=INK, lw=1.2,
+                   zorder=4, label="Live run on the QBFT network")
+        ax.scatter([0], [1], s=60, color=T3_COLOR["fixed"], zorder=4)
+        ax.annotate("Fixed", (0, 1), xytext=(6, 4), textcoords="offset points", fontsize=8.5, color=INK2)
+        ax.set_title(f"A batch waits at most {h} extra round{'s' if h > 1 else ''} (H = {h})", fontsize=11, pad=6)
+        ax.set_xlabel("Added delay at the gateway (rounds per message, mean)")
+        ax.set_xlim(-0.03, None)
+    axes[0].set_ylabel("Merkle roots, relative to fixed batching")
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.suptitle(f"The gas–latency trade-off at {devices} devices: every policy over its whole range", x=0.01,
+                 ha="left", fontsize=13, fontweight="bold")
+    fig.legend(handles, labels, loc="upper left", bbox_to_anchor=(0.01, 0.95), ncol=3, frameon=False)
+    fig.tight_layout(rect=(0, 0, 1, 0.86))
+    save(fig, "21_tradeoff_at_500_devices",
+         "Offline simulation with the scheduler code of the live runs, task 2's 5,000-message workload. Each line"
+         " sweeps the price of latency N (1 to 32: one root is worth delaying N messages by one round); lower and"
+         " further left is better. Circles: live QBFT runs (N = 4, and N = 16 for H = 1), on their offline points.")
+
+
+def fig_t3_holds(df: pd.DataFrame, devices: int = 500) -> None:
+    d = df[(df.chain == "qbft_1s") & (df.devices == devices) & (df.seed == df.seed.min())
+           & df.policy.isin(["rule", "forecast", "oracle"]) & df.group.isin(["scaling", "protect"])]
+    d = d.sort_values(["group", "policy"], key=lambda c: c.map({"scaling": 0, "protect": 1, "rule": 0, "forecast": 1,
+                                                                "oracle": 2}))
+    fig, ax = plt.subplots(figsize=(9, 3.9))
+    y = np.arange(len(d))
+    ax.barh(y, d.merged_roots, color=SLOTS[0], height=0.6, edgecolor=SURFACE, linewidth=2,
+            label="Held, and later messages joined: one root saved")
+    ax.barh(y, d.wasted_holds, left=d.merged_roots, color=GRID, height=0.6, edgecolor=SURFACE, linewidth=2,
+            label="Held, and nothing joined: delay for nothing")
+    for yy, (_, row) in zip(y, d.iterrows(), strict=True):
+        ax.annotate(f"{row.merged_roots:,} + {row.wasted_holds:,}", (row.merged_roots + row.wasted_holds, yy),
+                    xytext=(6, 0), textcoords="offset points", va="center", fontsize=8.5, color=INK2)
+    ax.set_yticks(y, d.setting)
+    ax.invert_yaxis()
+    ax.grid(axis="y", visible=False)
+    ax.set_xlim(0, (d.merged_roots + d.wasted_holds).max() * 1.2)
+    ax.set_xlabel("Batches held at least one round")
+    ax.set_title(f"Why the AI adds less delay: which holds paid off ({devices} devices)")
+    legend_top(ax, ncol=1)
+    ax.set_title(ax.get_title(loc="left"), loc="left", pad=44)
+    save(fig, "22_holds_paid_off",
+         "Live QBFT runs of figure 19 at 500 devices (H = 1, N = 4), plus the variants that never hold a batch with a"
+         " message the device model flags as an attack.")
+
+
+def fig_t3_attack_latency(df: pd.DataFrame, devices: int = 500) -> None:
+    d = df[(df.chain == "qbft_1s") & (df.devices == devices) & (df.seed == df.seed.min())
+           & df.group.isin(["scaling", "protect"])]
+    d = d.sort_values(["group", "policy"], key=lambda c: c.map({"scaling": 0, "protect": 1, "fixed": 0, "rule": 1,
+                                                                "forecast": 2, "oracle": 3}))
+    fig, ax = plt.subplots(figsize=(10, 4.6))
+    x = np.arange(len(d))
+    for i, (col, label, color) in enumerate((("attack_latency_mean_s", "Attack messages", SLOTS[1]),
+                                             ("normal_latency_mean_s", "Normal messages", SLOTS[0]))):
+        bars = ax.bar(x + (i - 0.5) * 0.38, d[col], 0.38, color=color, label=label, edgecolor=SURFACE, linewidth=2)
+        bar_labels(ax, bars, "{:.2f}")
+    ax.set_xticks(x, [sv.replace(", attacks never held", ",\nattacks\nnever held").replace("Perfect foresight",
+                                                                                         "Perfect\nforesight")
+                      for sv in d.setting])
+    ax.grid(axis="x", visible=False)
+    ax.set_ylabel("Message latency, mean (s)")
+    ax.set_title(f"Who pays the delay: attack vs normal messages ({devices} devices)")
+    legend_top(ax, ncol=2)
+    fig.subplots_adjust(bottom=0.2)                 # room for the three-line labels above the note
+    save(fig, "23_attack_vs_normal_latency",
+         "\nSame runs as figure 22. An attack message's latency is when the fog and the cloud can act on it."
+         " 'Attacks never held': a batch with a message the device model flags as an attack is committed at once.")
+
+
+def fig_t3_throughput(df: pd.DataFrame) -> None:
+    fig, ax = plt.subplots(figsize=(9, 4.8))
+    style = {"anvil_automine": "--", "qbft_1s": "-"}
+    chain_label = {"anvil_automine": "1 node, instant blocks", "qbft_1s": "4 validators (QBFT), 1 block/s"}
+    for chain in ("anvil_automine", "qbft_1s"):
+        d = _t3_scaling(df, chain)
+        for policy in ("fixed", "forecast"):
+            p = d[d.policy == policy]
+            ax.plot(p.devices, p.throughput_eps, marker="o", color=T3_COLOR[policy], ls=style[chain],
+                    markeredgecolor=SURFACE, markeredgewidth=2)
+            _end_labels(ax, p.devices, p.throughput_eps, "{:,.0f}", 6 if policy == "forecast" else -6)
+    handles = [matplotlib.lines.Line2D([], [], color=T3_COLOR[p], marker="o", markeredgecolor=SURFACE,
+                                       markeredgewidth=2, label=T3_LABEL[p]) for p in ("fixed", "forecast")]
+    handles += [matplotlib.lines.Line2D([], [], color=INK2, ls=ls, label=chain_label[c]) for c, ls in style.items()]
+    _devices_axis(ax, sorted(df.devices.unique()))
+    ax.set_xlim(8, 900)
+    ax.set_yscale("log")
+    ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:,.0f}"))
+    ax.set_ylabel("Messages processed per second (log)")
+    ax.set_title("Throughput vs number of devices: fixed batching vs AI-scheduled commits")
+    ax.set_title(ax.get_title(loc="left"), loc="left", pad=48)
+    ax.legend(handles=handles, loc="lower left", bbox_to_anchor=(0, 1.0), ncol=2, borderaxespad=0.3,
+              handlelength=3.2)
+    save(fig, "24_throughput_vs_devices",
+         "Same workload as figure 19 (H = 1, N = 4). Dashed: one Anvil node mining every transaction at once (task 1's"
+         " chain), with the same client as the QBFT runs; solid: 4 QBFT validators.")
+
+
+def tradeoff_table(sim: pd.DataFrame) -> pd.DataFrame:
+    """Added delay each policy needs to cut the roots to a target share of fixed batching, read off the lower convex
+    envelope of its sweep from (0 delay, all roots); interpolating means mixing two settings of the policy."""
+    def hull(points):
+        pts = sorted({(0.0, 1.0), *points})
+        h = []
+        for p in pts:
+            while len(h) >= 2 and ((h[-1][0] - h[-2][0]) * (p[1] - h[-2][1])
+                                   - (h[-1][1] - h[-2][1]) * (p[0] - h[-2][0])) <= 0:
+                h.pop()
+            h.append(p)
+        out = [h[0]]
+        for p in h[1:]:
+            if p[1] < out[-1][1]:
+                out.append(p)
+        return np.array(out)
+
+    def delay_at(h, target):
+        if h[:, 1].min() > target:
+            return np.nan
+        i = int(np.argmax(h[:, 1] <= target))
+        (x0, y0), (x1, y1) = h[i - 1], h[i]
+        return x0 + (target - y0) * (x1 - x0) / (y1 - y0)
+
+    rows = []
+    sim = sim[sim.protect_suspicious != True]  # noqa: E712
+    for (n, dev), g in sim.groupby(["rows", "devices"]):
+        fixed_roots = g[g.label == "fixed"].roots.iloc[0]
+        for h in sorted(g.hold_rounds.dropna().unique()):
+            hulls = {lab: hull(list(zip(q.held_rounds_per_message, q.roots / fixed_roots, strict=True)))
+                     for lab in ("rule", "forecast", "rate", "oracle")
+                     for q in [g[(g.label == lab) & (g.hold_rounds == h)]]}
+            for target in (0.9, 0.8, 0.7, 0.6, 0.5):
+                v = {lab: delay_at(hh, target) for lab, hh in hulls.items()}
+                if any(np.isnan(x) for x in v.values()):
+                    continue
+                gap = v["rule"] - v["oracle"]
+                rows.append({"rows": n, "devices": dev, "hold_rounds": int(h), "roots_target": target,
+                             **{f"delay_{k}": x for k, x in v.items()},
+                             "ai_vs_rule": v["forecast"] / v["rule"] - 1 if v["rule"] else np.nan,
+                             "ai_share_of_foresight_gain": (v["rule"] - v["forecast"]) / gap if gap > 1e-9 else np.nan})
+    return pd.DataFrame(rows)
+
+
+def task3(s: dict) -> None:
+    runs = load_runs(s)
+    df = task3_table(runs, s)
+    df.round(4).to_csv(TAB / "runs.csv", index=False)
+    sc = df[df.group.isin(["scaling", "single_node"])].pivot_table(
+        index=["chain", "devices"], columns="policy",
+        values=["gas_per_msg", "merkle_gas_per_msg", "latency_mean_s", "latency_p95_s", "throughput_eps", "roots"])
+    sc.round(3).to_csv(TAB / "scaling.csv")
+    at500 = (df[(df.chain == "qbft_1s") & (df.devices == df.devices.max())]
+             .groupby("setting", sort=False)
+             .agg(runs=("seed", "size"), roots=("roots", "mean"), roots_vs_fixed=("roots_vs_fixed", "mean"),
+                  gas_per_msg=("gas_per_msg", "mean"), merkle_gas_per_msg=("merkle_gas_per_msg", "mean"),
+                  latency_mean_s=("latency_mean_s", "mean"), latency_p95_s=("latency_p95_s", "mean"),
+                  latency_added_s=("latency_added_s", "mean"), attack_latency_mean_s=("attack_latency_mean_s", "mean"),
+                  normal_latency_mean_s=("normal_latency_mean_s", "mean"), throughput_eps=("throughput_eps", "mean"),
+                  held_rounds_per_message=("held_rounds_per_message", "mean"), merged_roots=("merged_roots", "mean"),
+                  wasted_holds=("wasted_holds", "mean")))
+    at500.round(4).to_csv(TAB / "at_500_devices.csv")
+    sim = pd.read_csv(s["simulation"])
+    tradeoff_table(sim).round(4).to_csv(TAB / "tradeoff.csv", index=False)
+    record = json.loads((s["forecaster"] / json.loads((s["forecaster"] / "current.json").read_text())["model_id"])
+                        .with_suffix(".json").read_text())
+    quality = pd.read_csv(s["forecast_quality"]).assign(window="test")
+    validation = pd.DataFrame([{"window": "validation", **{k: v for k, v in record["metrics"].items()}}])
+    pd.concat([validation, quality], ignore_index=True).round(4).to_csv(TAB / "forecaster.csv", index=False)
+    fig_t3_gas(df)
+    fig_t3_latency(df)
+    fig_t3_tradeoff(sim, df)
+    fig_t3_holds(df)
+    fig_t3_attack_latency(df)
+    fig_t3_throughput(df)
+
+
 def main() -> None:
     global FIG, TAB
     parser = argparse.ArgumentParser()
@@ -772,6 +1177,9 @@ def main() -> None:
         return
     if args.set == "final_faults":
         faults(s)
+        return
+    if args.set == "final_task3":
+        task3(s)
         return
     runs = load_runs(s)
     fig_accuracy(runs, s)

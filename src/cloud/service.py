@@ -39,7 +39,8 @@ class CloudNode:
                 "fog_pred": e["fog_inference"]["prediction"],
                 "cloud_pred": str(pred),
                 "cloud_score": conf,
-                "e2e_ms": (received_at - generated_at) * 1000,
+                # from the event's arrival: a message held at the gateway (final task 3) arrived rounds earlier
+                "e2e_ms": (received_at - e.get("arrived_at", generated_at)) * 1000,
             })
         if self.ledger is not None:
             self.ledger.record_inferences(events, predictions, self.model.model_id)

@@ -36,6 +36,7 @@ from src.fog.service import FogNode
 if TYPE_CHECKING:
     from src.common.blockchain import Chain
     from src.common.faults import Fault, FaultInjector
+    from src.device.commit_policy import CommitScheduler
 
 FAULT_POLICIES = ("recover", "none")
 
@@ -59,12 +60,14 @@ def node_roles(n_nodes: int, edge_ids: list[str], fog_ids: list[str]) -> dict[st
 
 def attach_blockchain(chains: Chain | list[Chain], mode: str, seed: int, device_ids: list[str],
                       device_layer: DeviceLayer, edge_nodes: list[EdgeNode], fog_nodes: list[FogNode], cloud: CloudNode,
-                      audit_writes: str = "await") -> dict[str, int]:
+                      audit_writes: str = "await", scheduler: CommitScheduler | None = None) -> dict[str, int]:
     """Deploy IoTRegistry, give every node its own account, register devices and models (ADR §6.2, Phase 6).
 
     With several blockchain nodes (one Chain each), the roles are spread over them (node_roles), so state written
     through one node is read through another. audit_writes="background" confirms fog alert and cloud inference
-    records off the event path. Returns the node index of every role."""
+    records off the event path. A commit scheduler (final task 3) decides when the gateway's Merkle batches close;
+    its forecaster, if it has one, is registered and verified on-chain like the layer models. Returns the node index
+    of every role."""
     # Imported here so baseline runs need neither web3 nor the blockchain toolchain.
     from src.cloud.blockchain_client import CloudChainClient
     from src.common.blockchain import id32
@@ -95,7 +98,7 @@ def attach_blockchain(chains: Chain | list[Chain], mode: str, seed: int, device_
         for d in device_ids
     ], owner)
 
-    device_layer.ledger = DeviceChainClient(chains[roles["device_gateway"]], keys, gateway, mode)
+    device_layer.ledger = DeviceChainClient(chains[roles["device_gateway"]], keys, gateway, mode, scheduler)
     for node, a in zip(edge_nodes, edge_accts, strict=True):
         node.ledger = EdgeChainClient(chains[roles[node.edge_id]], a, mode)
     for fog, a in zip(fog_nodes, fog_accts, strict=True):
@@ -104,7 +107,8 @@ def attach_blockchain(chains: Chain | list[Chain], mode: str, seed: int, device_
 
     # Model provenance: the cloud registers every deployed model, then each layer's artifact is verified
     # against the on-chain hash before any event is processed (ADR §13.2 C).
-    for model in (device_layer.model, edge_nodes[0].model, fog_nodes[0].model, cloud.model):
+    forecaster = [scheduler.policy.model] if scheduler is not None and scheduler.policy.model is not None else []
+    for model in (device_layer.model, edge_nodes[0].model, fog_nodes[0].model, cloud.model, *forecaster):
         cloud.ledger.register_model(model.record)
         cloud.ledger.verify_model(model.record, model.path)
     return roles
@@ -169,7 +173,8 @@ def run(*, experiment: str, blockchain: str | None = None, n_rows: int | None = 
         events_per_second: float = 1000.0, seed: int | None = None, block_time: float | None = None,
         replay: str = "random", speed: float = 1.0, replicas: int = 1, chain_backend: str = "anvil",
         signing: str | None = None, audit_writes: str = "await", interceptor=None,
-        faults: list[Fault] | None = None, fault_policy: str = "recover", log=print) -> dict:
+        faults: list[Fault] | None = None, fault_policy: str = "recover", commit_policy: dict | None = None,
+        log=print) -> dict:
     """interceptor(batch) -> batch, if given, runs between the device and edge layers: an in-flight
     attacker (security experiments). Rejected event ids are then returned in the result.
 
@@ -186,12 +191,18 @@ def run(*, experiment: str, blockchain: str | None = None, n_rows: int | None = 
     faults (fault-tolerance add-on): a schedule of `src.common.faults.Fault`, applied while the stream runs;
     fault_policy "recover" (failover and store-and-forward) or "none" (traffic for a failed component is lost); see
     _stream_with_faults. Node faults need chain_backend="qbft". faults=[] is the reference of a fault experiment:
-    the same loop and records, nothing fails."""
+    the same loop and records, nothing fails.
+
+    commit_policy (final task 3, RQ-11): when the device gateway closes each device's Merkle batch, e.g.
+    {"policy": "forecast", "hold_rounds": 1, "break_even": 16}; see src/device/commit_policy.py. None = one root per
+    device per micro-batch (the design of every earlier experiment). Needs blockchain="batch"."""
     signing = signing or ("local" if chain_backend == "qbft" else "node")
     if signing not in ("node", "local") or (chain_backend == "qbft" and signing != "local"):
         raise ValueError(f"signing={signing!r} with chain_backend={chain_backend!r}: Besu signs nothing for clients")
     if faults is not None and (interceptor is not None or fault_policy not in FAULT_POLICIES):
         raise ValueError(f"faults run without an interceptor, with fault_policy in {FAULT_POLICIES}")
+    if commit_policy is not None and (blockchain != "batch" or faults is not None):
+        raise ValueError("commit_policy schedules Merkle batches: it needs blockchain='batch' and no faults")
     with ExitStack() as stack:
         chains = monitor = network = injector = None
         if blockchain:
@@ -219,7 +230,7 @@ def run(*, experiment: str, blockchain: str | None = None, n_rows: int | None = 
                     devices=devices, edges=edges, fogs=fogs, batch_size=batch_size,
                     events_per_second=events_per_second, seed=seed, block_time=block_time,
                     replay=replay, speed=speed, replicas=replicas, interceptor=interceptor, injector=injector,
-                    fault_policy=fault_policy, log=log)
+                    fault_policy=fault_policy, commit_policy=commit_policy, log=log)
 
 
 def _stream_with_faults(sim, batch_size: int, device_layer: DeviceLayer, edge_nodes: list[EdgeNode],
@@ -317,9 +328,30 @@ def _fault_summary(record: dict, sim, cloud: CloudNode, rejected: list, chains, 
     return record
 
 
+def _commit_scheduler(spec: dict, sim, batch_size: int) -> CommitScheduler:
+    from src.device.commit_policy import CommitScheduler, TrafficForecaster, future_rounds, make_policy
+
+    name = spec["policy"]
+    policy = make_policy(spec, forecaster=TrafficForecaster() if name == "forecast" else None,
+                         future=future_rounds(sim.device_of, batch_size) if name == "oracle" else None)
+    return CommitScheduler(policy, sim.device_ids)
+
+
+def message_latency(rows: list[dict]) -> dict:
+    """Per-message latency, arrival at the device layer -> cloud result (ms): all, attack and normal messages."""
+    df = pd.DataFrame(rows, columns=["e2e_ms", "attack_label"])
+    out = {}
+    for name, d in (("all", df), ("attack", df[df.attack_label == 1]), ("normal", df[df.attack_label == 0])):
+        a = d.e2e_ms.to_numpy()
+        out[name] = {"count": int(a.size), **({"mean_ms": float(a.mean()), "p50_ms": float(np.percentile(a, 50)),
+                                                "p95_ms": float(np.percentile(a, 95)), "max_ms": float(a.max())}
+                                             if a.size else {})}
+    return out
+
+
 def _run(*, experiment, blockchain, chains, monitor, network, chain_backend, signing, audit_writes, n_rows, devices,
          edges, fogs, batch_size, events_per_second, seed, block_time, replay, speed, replicas, interceptor,
-         log, injector=None, fault_policy="recover") -> dict:
+         log, injector=None, fault_policy="recover", commit_policy=None) -> dict:
     base, exp = load_config("base"), load_config("experiments")
     topo = base["topology"]
     devices, edges, fogs = devices or topo["devices"], edges or topo["edges"], fogs or topo["fogs"]
@@ -349,9 +381,10 @@ def _run(*, experiment, blockchain, chains, monitor, network, chain_backend, sig
     fog_nodes = [FogNode(f"fog-{i:02d}", flood_events_per_second=flood_eps) for i in range(fogs)]
     cloud = CloudNode()
     roles = None
+    scheduler = _commit_scheduler(commit_policy, sim, batch_size) if commit_policy is not None else None
     if chains is not None:
         roles = attach_blockchain(chains, blockchain, seed, sim.device_ids, device_layer, edge_nodes, fog_nodes, cloud,
-                                  audit_writes)
+                                  audit_writes, scheduler)
     log(f"{experiment}: streaming {len(sim):,} events from {devices} devices via {edges} edges, {fogs} fogs"
         f" (blockchain={blockchain or 'off'}{f', {chain_backend}' if blockchain else ''})")
 
@@ -366,10 +399,14 @@ def _run(*, experiment, blockchain, chains, monitor, network, chain_backend, sig
         fault_record = _stream_with_faults(sim, batch_size, device_layer, edge_nodes, fog_nodes, cloud, latency,
                                            monitor, injector, fault_policy, wall_start)
     else:
-        for batch in sim.batches(batch_size):
+        n_rounds = -(-len(sim) // batch_size)
+        for k, batch in enumerate(sim.batches(batch_size)):
             generated_at = time.perf_counter()
+            for e in batch:
+                e["arrived_at"] = generated_at
             with latency.measure("device"):
-                device_layer.process(batch)
+                # the events that leave the device layer now: all of them unless a commit scheduler holds some
+                batch = device_layer.process(batch, final=k == n_rounds - 1)
             if interceptor is not None:
                 batch = interceptor(batch)
             per_edge: list[list[dict]] = [[] for _ in edge_nodes]
@@ -427,8 +464,11 @@ def _run(*, experiment, blockchain, chains, monitor, network, chain_backend, sig
         },
         "chain": chains[0].stats.summary() if chains is not None else {},
         "faults": fault_record,
+        "commit_schedule": scheduler.summary() if scheduler is not None else None,
+        "message_latency_ms": message_latency(cloud.rows) if processed else None,
         "rejected": rejected if interceptor is not None else None,
-        "cloud_rows": cloud.rows if interceptor is not None or fault_record is not None else None,
+        "cloud_rows": cloud.rows if interceptor is not None or fault_record is not None or scheduler is not None
+        else None,
         # nothing reaches the cloud only when a fault takes it down for the whole stream without recovery
         "accuracy": cloud.accuracy_report() if processed else [],
         "cloud_confusion": cloud.confusion_matrix("cloud") if processed else None,

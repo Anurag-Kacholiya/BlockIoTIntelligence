@@ -66,3 +66,36 @@ def read_events(capture: str, columns: list[str] | None = None, filters: list | 
     if "ts_us" in df.columns and not df.ts_us.is_monotonic_increasing:
         df = df.sort_values([c for c in ("ts_us", "packet_no") if c in df.columns], kind="stable", ignore_index=True)
     return df
+
+
+WINDOWS = {"train": ("start_us", "validation_start_us"), "validation": ("validation_start_us", "test_start_us"),
+           "test": ("test_start_us", None)}
+TIMING_COLUMNS = ["capture", "device_id", "session", "ts_us", "packet_no", "Attack_label"]
+
+
+def window_packets(capture: str, window: str, cuts: pd.DataFrame) -> pd.DataFrame:
+    """A capture's labelled packets in one time-split window (train / validation / test), timing columns only, with
+    `offset_us` = time since its session's window start (sessions overlaid, as the realistic replay does), sorted."""
+    lo, hi = WINDOWS[window]
+    filters = [[("session", "=", int(c.session)), ("ts_us", ">=", int(getattr(c, lo))),
+                *([("ts_us", "<", int(getattr(c, hi)))] if hi else [])]
+               for c in cuts[cuts.capture == capture].itertuples()]
+    w = read_events(capture, columns=TIMING_COLUMNS, filters=filters)
+    w["offset_us"] = w.ts_us - w.groupby("session").ts_us.transform("min")
+    return w.sort_values(["offset_us", "packet_no"], kind="stable", ignore_index=True)
+
+
+def timing_stream(packets: dict[str, pd.DataFrame], n_rows: int | None, rng=None) -> pd.DataFrame:
+    """The realistic replay's construction (pipeline.load_replay_rows) on any window, timing columns only: every
+    capture an equal share of `n_rows` as one contiguous slice. rng=None starts every slice at the window start (on
+    the test window: exactly the replayed messages); with a numpy Generator each capture's slice starts at a random
+    packet of its window, for training and validation streams. Feed the result to RealtimeReplay."""
+    budget = share_budget({c: len(w) for c, w in packets.items()}, n_rows)
+    parts = []
+    for capture, b in budget.items():
+        if b == 0:
+            continue
+        w = packets[capture]
+        start = 0 if rng is None else int(rng.integers(0, len(w) - b + 1))
+        parts.append(w.iloc[start:start + b])
+    return pd.concat(parts, ignore_index=True).drop(columns="offset_us")

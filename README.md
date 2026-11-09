@@ -118,6 +118,39 @@ Headline results:
 - 1 of 4 validators down: the chain continues at 0.4 blocks/s;
 - 2 of 4 down: it halts and resumes 64.8 s after the quorum returns, without forking.
 
+## AI-driven blockchain (final task 3, RQ-11)
+
+In Merkle batch mode every micro-batch ends with one root per device: a `commitBatch` plus the edge's
+`recordProcessing`, ~149k gas whatever the number of messages under it. With 500 devices most roots cover one or two
+messages.
+
+Here the device gateway decides, per micro-batch and device, whether to commit the device's batch now or keep it open
+for the device's next messages. A learned traffic forecaster drives the decision: will the device send again in
+time?
+- It is trained by the cloud on the time split's train windows.
+- It is registered and verified on-chain like the layer models.
+- A batch of *m* messages is held only if *m ≤ p × N*, with *N* an explicit price of latency.
+
+```bash
+BLOCKIOT_VIEW=real_time .venv/bin/python scripts/train_forecaster.py   # the cloud trains the forecaster (~25 s)
+.venv/bin/python scripts/run_ai_blockchain.py simulate                  # every policy over the whole trade-off (~1 min)
+scripts/run_final_task3.sh                                              # everything + figures (~1 h)
+```
+
+Figures and tables: `docs/final/task3/`. Design and results:
+[docs/final/03_ai_driven_blockchain.md](docs/final/03_ai_driven_blockchain.md).
+
+Headline results at 500 devices, on 4 QBFT validators (a batch waits at most one extra micro-batch):
+- **Gas:** the AI cuts gas per message by 22.5% (96.3k → 74.6k) for +0.82 s of message latency (3 seeds). A fixed
+  rule that holds every small batch saves 26.8%, but adds +1.18 s.
+- **At equal gas,** offline, the AI needs less added delay than the rule in 59 of 60 comparisons (median 15% less).
+  It gets half of the gain perfect foresight would give.
+- **Attacks:** never holding batches the device model flags as attacks keeps attack traffic at the fixed design's
+  latency, and still saves 15% of the gas.
+- **Unchanged:** every prediction, the alerts and the security checks are identical to the fixed design.
+- **Scaling, partly fixed:** gas per message from 10 to 500 devices grows 4.8× instead of 6.2×. One root per device
+  per commit stays the floor.
+
 ## Layout
 
 | Path | Contents |

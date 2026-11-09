@@ -120,3 +120,50 @@ suites:
       quorum_lost:             # validators 2 and 3: no quorum, the chain halts; node 3 back at 60 s restores it
         modes: [batch, per_event]
         faults: [{target: "node:3"}, {target: "node:2", up_at_s: null}]
+  final_task3:                 # final task 3 (RQ-11 AI-driven blockchain): when the gateway closes each device's Merkle
+    view: real_time            # batch; scripts/run_ai_blockchain.py. The task 2 scaling workload (T2.4) on its network.
+    replay: realistic
+    rows: 5000
+    replicas: [1, 5, 10, 25, 50]   # 10, 50, 100, 250, 500 devices: the same messages and timing at every point
+    edges: 2
+    fogs: 1
+    batch_size: 256            # messages per round (micro-batch)
+    chain_backend: qbft        # 4 validators, 1 block/s
+    block_period_s: 1
+    signing: local
+    audit_writes: background
+    simulate:                  # offline sweep: the same scheduler code as a live run, over the whole trade-off
+      rows: [5000, 10000]
+      hold_rounds: [1, 2, 3]
+      break_even: [1, 1.5, 2, 3, 4, 6, 8, 12, 16, 32]
+      every: [2, 3, 4]
+    # Live runs: shared by rule, forecast and oracle unless a group overrides it. break_even 4 = one root's gas is
+    # worth delaying 4 messages by one round; hold_rounds 1 = no message waits more than one extra round.
+    policy: {hold_rounds: 1, break_even: 4, protect_suspicious: false}
+    groups:
+      scaling:                 # T3.1 every policy at every device count (the task 2 scaling runs, T2.4)
+        policies: [fixed, rule, forecast, oracle]
+        seeds: [42]
+      seeds:                   # T3.2 seed spread at 500 devices (a seed changes event ids and device keys only)
+        policies: [fixed, rule, forecast]
+        replicas: [50]
+        seeds: [43, 44]
+      settings:                # T3.3 other points of the trade-off at 500 devices
+        policies:
+          - {policy: interval, every: 2}
+          - {policy: rule, break_even: 16}
+          - {policy: forecast, break_even: 16}
+          - {policy: rule, hold_rounds: 2}
+          - {policy: forecast, hold_rounds: 2}
+        replicas: [50]
+        seeds: [42]
+      protect:                 # T3.4 batches with a message the device model flags as an attack are never held
+        policies:
+          - {policy: rule, protect_suspicious: true}
+          - {policy: forecast, protect_suspicious: true}
+        replicas: [50]
+        seeds: [42]
+      single_node:             # T3.5 one Anvil node mining each transaction at once (task 1's chain), same client
+        chain: [anvil, null]
+        policies: [fixed, forecast]
+        seeds: [42]

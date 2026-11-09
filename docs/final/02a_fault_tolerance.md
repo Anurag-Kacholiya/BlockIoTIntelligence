@@ -408,5 +408,5 @@ messages the edges already recorded, would close this gap. It is noted as a limi
   returns relative to QBFT's round timer (observed 16–129 s).
 - **The cloud is a single point:** store and forward keeps its input but needs memory at the fogs for the whole
   outage (2,560 messages here).
-- **Next:** final task 3 (RQ-11, AI-chosen Merkle batch size) on this network. The time-window features add-on is
-  still pending.
+- **Next:** ~~final task 3 (RQ-11, AI-chosen Merkle batch size) on this network~~: done, see
+  [03_ai_driven_blockchain.md](03_ai_driven_blockchain.md). The time-window features add-on is still pending.

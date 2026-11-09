@@ -165,5 +165,20 @@ contiguous share per capture, never used for training.
 |---|---:|---|
 | Replay, no blockchain and Merkle batch | 200,000 | task 1 §10.6 |
 | Comparison (3 seeds) and integrity under attack | 10,000 | task 1 §10.10; task 2 T2.1–T2.3 |
-| Device scaling (each device split over k) | 5,000 | task 1 §10.10; task 2 T2.4 |
+| Device scaling (each device split over k) | 5,000 | task 1 §10.10; task 2 T2.4; task 3 (all live runs) |
 | Security | 3,000 per attack pass | task 1 §10.10; task 2 security |
+| Fault tolerance (Experiment F) | 10,000 | fault add-on §10 |
+
+### 4.5 Final task 3: what the traffic forecaster learns from
+
+The gateway's traffic forecaster ([final/03_ai_driven_blockchain.md](final/03_ai_driven_blockchain.md)) uses only
+**timing**: device and timestamp, never feature values or labels.
+
+| Data | Window | Amount |
+|---|---|---|
+| Training streams | time split's **train** windows of the 24 captures | 24 replay-like streams (6 each of 2,500, 5,000, 10,000 and 20,000 packets; 225,000 packet times, streams may overlap), each at 7 device counts: 1,327,144 samples |
+| Validation streams | **validation** windows | 8 streams (75,000 packet times): 461,294 samples |
+| Test (offline sweep and live runs) | **test** window: exactly the realistic replay | 5,000 and 10,000 messages |
+
+The test window is never used for training or model choice.
+

@@ -1,0 +1,49 @@
+{
+  "model_id": "device-forecaster-gradient_boosting-475884c92daf",
+  "layer": 0,
+  "family": "gradient_boosting",
+  "model_hash": "sha256:475884c92daf56db9b055b46378403552da76dd0f9074605a2051109bd2d5036",
+  "training_data_hash": "sha256:f4587c8fdd19953c3f4161a5356c25d05e98c0d2cebd5bd1b62fa2e4c416eca3",
+  "feature_schema_hash": "sha256:437540578c4c8d2baa3164c11136b9b17ad3e047d71623de524512c8d2844b5a",
+  "hyperparameters": {
+    "max_iter": 300,
+    "learning_rate": 0.05,
+    "random_state": 42
+  },
+  "framework_version": "scikit-learn 1.7.2",
+  "metrics": {
+    "samples": 461294.0,
+    "positive_rate": 0.7140045177262223,
+    "roc_auc": 0.9441536121923498,
+    "brier": 0.07977470863880064,
+    "log_loss": 0.2623830256696065,
+    "accuracy": 0.8909242261984764,
+    "persistence_roc_auc": 0.6416035191231704,
+    "persistence_accuracy": 0.7387609637237857,
+    "rate_roc_auc": 0.728725581287715,
+    "rate_brier": 0.18501945330566003,
+    "fit_seconds": 13.188525832956657,
+    "train_samples": 1327144.0
+  },
+  "trained_at": "2026-11-04T06:35:13.485173Z",
+  "features": [
+    "remaining_rounds",
+    "msgs_this_round",
+    "msgs_prev_round",
+    "msgs_2_rounds_ago",
+    "rounds_since_last",
+    "last_gap_rounds",
+    "mean_gap_rounds",
+    "active_share",
+    "msgs_per_round",
+    "round_span_s",
+    "recent_span_s",
+    "active_devices_share",
+    "quiet_s",
+    "mean_interarrival_s",
+    "expected_msgs",
+    "rounds_to_next",
+    "span_trend"
+  ],
+  "artifact": "device-forecaster-gradient_boosting-475884c92daf.joblib"
+}
